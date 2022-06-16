@@ -1,0 +1,26 @@
+{
+    "name": "nocfl-js",
+    "version": "0.0.0",
+    "description": "An opinionated S3 storage library informed by ocfl but without versioning",
+    "main": "index.js",
+    "scripts": {
+        "test": "npm run minio && sleep 5 && ./node_modules/.bin/jest --runInBand && npm run cleanup",
+        "test:watch": "npm run minio && sleep 5 && ./node_modules/.bin/jest --watch --runInBand && npm run cleanup",
+        "minio": "docker-compose up -d",
+    "cleanup": "docker-compose stop && docker-compose rm -f"
+    },
+    "author": "Marco La Rosa",
+    "license": "ISC",
+    "dependencies": {
+        "@aws-sdk/client-s3": "^3.110.0",
+        "@aws-sdk/lib-storage": "^3.110.0",
+        "@aws-sdk/s3-request-presigner": "^3.110.0",
+        "fs-extra": "^10.1.0",
+        "lodash": "^4.17.21",
+        "uuid": "^8.3.2"
+    },
+    "devDependencies": {
+        "chance": "^1.1.8",
+        "jest": "^28.1.1"
+    }
+}
