@@ -4,7 +4,7 @@ const { remove, readFile } = fsExtra;
 import path from "path";
 import hasha from "hasha";
 
-describe.skip("Test S3 actions", () => {
+describe("Test S3 actions", () => {
     let s3client, bucket;
     beforeAll(() => {
         s3client = new S3({
@@ -53,8 +53,7 @@ describe.skip("Test S3 actions", () => {
         });
         expect(data.httpStatusCode).toEqual(200);
         data = (await bucket.listObjects({})).Contents;
-        expect(data.length).toBe(1);
-        expect(data[0].Key).toBe("s3.js");
+        expect(data.length).toBe(2);
 
         data = await bucket.removeObjects({
             keys: ["s3.js"],
@@ -62,42 +61,44 @@ describe.skip("Test S3 actions", () => {
         expect(data.httpStatusCode).toEqual(200);
     });
     test("it should be able to write a string to a bucket object", async () => {
-        let data = await bucket.upload({
+        let response = await bucket.upload({
             target: "file.txt",
             content: "some text",
         });
-        expect(data.httpStatusCode).toEqual(200);
+        expect(response.httpStatusCode).toEqual(200);
 
-        data = await bucket.download({
+        response = await bucket.download({
             target: "file.txt",
-            localPath: path.join(__dirname, "..", "s3-testing"),
+            localPath: path.join("/tmp", "s3-testing"),
         });
-        let content = await readFile(path.join(__dirname, "..", "s3-testing", "file.txt"));
+        let content = await readFile(path.join("/tmp", "s3-testing"));
         expect(content.toString()).toEqual("some text");
 
-        data = await bucket.removeObjects({
+        response = await bucket.removeObjects({
             keys: ["file.txt"],
         });
-        expect(data.httpStatusCode).toEqual(200);
+        expect(response.httpStatusCode).toEqual(200);
+        await remove(path.join("/tmp", "s3-testing"));
     });
     test("it should be able to write json to a bucket object", async () => {
-        let data = await bucket.upload({
+        let response = await bucket.upload({
             target: "file.txt",
             json: { property: "value" },
         });
-        expect(data.httpStatusCode).toEqual(200);
+        expect(response.httpStatusCode).toEqual(200);
 
-        data = await bucket.download({
+        response = await bucket.download({
             target: "file.txt",
-            localPath: path.join(__dirname, "..", "s3-testing"),
+            localPath: path.join("/tmp", "s3-testing"),
         });
-        let content = await readFile(path.join(__dirname, "..", "s3-testing", "file.txt"));
+        let content = await readFile(path.join("/tmp", "s3-testing"));
         expect(JSON.parse(content.toString())).toEqual({ property: "value" });
 
-        data = await bucket.removeObjects({
+        response = await bucket.removeObjects({
             keys: ["file.txt"],
         });
-        expect(data.httpStatusCode).toEqual(200);
+        expect(response.httpStatusCode).toEqual(200);
+        await remove(path.join("/tmp", "s3-testing"));
     });
     test("it should be able to upload a file to a bucket (pseudo) folder and then remove it", async () => {
         let data = await bucket.upload({
@@ -118,30 +119,31 @@ describe.skip("Test S3 actions", () => {
     });
     test("it should be able to download an object from the bucket root", async () => {
         // test downloading an object at the bucket root
-        let data = await bucket.upload({
+        let response = await bucket.upload({
             localPath: path.join(__dirname, "./s3.js"),
             target: "s3.js",
         });
-        expect(data.httpStatusCode).toEqual(200);
+        expect(response.httpStatusCode).toEqual(200);
 
-        data = await bucket.download({
+        response = await bucket.download({
             target: "s3.js",
-            localPath: path.join(__dirname, "..", "s3-testing"),
+            localPath: path.join("/tmp", "s3-testing"),
         });
-        expect(data.httpStatusCode).toEqual(200);
+        expect(response.httpStatusCode).toEqual(200);
 
         const originalHash = await hasha.fromFile(path.join(__dirname, "./s3.js"), {
             algorithm: "md5",
         });
 
-        const newHash = await hasha.fromFile(path.join(__dirname, "..", "s3-testing", "./s3.js"), {
+        const newHash = await hasha.fromFile(path.join("/tmp", "s3-testing"), {
             algorithm: "md5",
         });
         expect(originalHash).toEqual(newHash);
-        data = await bucket.removeObjects({
+        response = await bucket.removeObjects({
             keys: ["s3.js"],
         });
-        expect(data.httpStatusCode).toEqual(200);
+        expect(response.httpStatusCode).toEqual(200);
+        await remove(path.join("/tmp", "s3-testing"));
     });
     test("it should be able to download an object from the bucket root and return the data", async () => {
         // test downloading an object at the bucket root

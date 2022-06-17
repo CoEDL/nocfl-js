@@ -219,10 +219,8 @@ export class Bucket {
             data = Buffer.concat(chunks).toString();
             return data;
         } else {
-            const output = path.join(localPath, target);
-            await ensureDir(path.dirname(output));
             await new Promise(async (resolve, reject) => {
-                const stream = createWriteStream(output);
+                const stream = createWriteStream(localPath);
 
                 stream.on("close", resolve);
                 stream.on("error", (error) => {
@@ -235,7 +233,7 @@ export class Bucket {
     }
 
     async readJSON({ target }) {
-        let data = await this.download({ target, verify: false });
+        let data = await this.download({ target });
         return JSON.parse(data);
     }
 
@@ -259,14 +257,16 @@ export class Bucket {
     async removeObjects({ keys = [], prefix = undefined }) {
         if (prefix) {
             let objects = (await this.listObjects({ prefix })).Contents;
-            keys = objects.map((entry) => entry.Key);
+            if (objects) keys = objects.map((entry) => entry.Key);
         }
         let objs = keys.map((k) => ({ Key: k }));
-        const command = new DeleteObjectsCommand({
-            Bucket: this.bucket,
-            Delete: { Objects: objs },
-        });
-        return (await this.client.send(command)).$metadata;
+        if (objs.length) {
+            const command = new DeleteObjectsCommand({
+                Bucket: this.bucket,
+                Delete: { Objects: objs },
+            });
+            return (await this.client.send(command)).$metadata;
+        }
     }
 
     async syncLocalPathToBucket({ localPath }) {
