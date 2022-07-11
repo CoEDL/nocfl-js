@@ -4,6 +4,7 @@ const { createReadStream } = fsExtra;
 import crypto from "crypto";
 import * as nodePath from "path";
 import hasha from "hasha";
+import { isString, isUndefined } from "lodash";
 
 /** Class representing an S3 store. */
 export class Store {
@@ -21,7 +22,7 @@ export class Store {
      * @param {boolean} [credentials.forcePathStyle] - whether to force path style endpoints (required for Minio and the like)
      * @param {number} [splay=1] - the number of characters (from the start of the identifer) when converting the id to a path
      */
-    constructor({ domain, className, id, credentials, splay = 1 }) {
+    constructor({ domain = undefined, className, id, credentials, splay = 1 }) {
         if (!id) throw new Error(`Missing required property: 'id'`);
         if (!className) throw new Error(`Missing required property: 'className'`);
         if (!credentials) throw new Error(`Missing required property: 'credentials'`);
@@ -43,13 +44,23 @@ export class Store {
                 `The className doesn't match the allowed format: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$`
             );
         }
+
+        if (!isString(id)) {
+            throw new Error(`The 'id' must be a string`);
+        }
+        if (!isString(className)) {
+            throw new Error(`The 'className' must be a string`);
+        }
+        if (!isString(domain) && !isUndefined(domain)) {
+            throw new Error(`The 'domain' must be a string`);
+        }
         this.credentials = credentials;
         this.bucket = new Bucket(credentials);
         this.id = id;
         this.className = className;
         this.itemPath = domain
-            ? `${domain}/${className}/${id.slice(0, splay)}/${id}`
-            : `${className}/${id.slice(0, splay)}/${id}`;
+            ? `${domain.toLowerCase()}/${className.toLowerCase()}/${id.slice(0, splay)}/${id}`
+            : `${className.toLowerCase()}/${id.slice(0, splay)}/${id}`;
         this.roCrateFile = nodePath.join(this.itemPath, "ro-crate-metadata.json");
         this.inventoryFile = nodePath.join(this.itemPath, "inventory.json");
         this.roCrateSkeleton = {
