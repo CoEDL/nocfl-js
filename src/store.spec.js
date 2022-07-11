@@ -30,6 +30,64 @@ describe("Test storage actions", () => {
             expect(error.message).toEqual(`Missing required property: 'id'`);
         }
     });
+    test("it should be able to init a connection to the storage", () => {
+        const store = new Store({ className: "item", id: "test", credentials });
+        expect(store.credentials).toEqual(credentials);
+    });
+    test("it fail to init a connection - missing classname", () => {
+        try {
+            new Store({ id: "test", credentials });
+        } catch (error) {
+            expect(error.message).toEqual(`Missing required property: 'className'`);
+        }
+    });
+    test("it fail to init a connection - missing id", () => {
+        try {
+            new Store({ className: "test", credentials });
+        } catch (error) {
+            expect(error.message).toEqual(`Missing required property: 'id'`);
+        }
+    });
+    test("it fail to init a connection - missing credentials", () => {
+        try {
+            new Store({ className: "test", id: "test" });
+        } catch (error) {
+            expect(error.message).toEqual(`Missing required property: 'credentials'`);
+        }
+    });
+    test("it should not accept the identifier - disallowed characters", () => {
+        try {
+            new Store({ className: "test", id: "test&", credentials });
+        } catch (error) {
+            expect(error.message).toEqual(
+                `The identifier doesn't match the allowed format: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$`
+            );
+        }
+    });
+    test("it should not accept the className - disallowed characters", () => {
+        try {
+            new Store({ className: "test&", id: "test", credentials });
+        } catch (error) {
+            expect(error.message).toEqual(
+                `The className doesn't match the allowed format: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$`
+            );
+        }
+    });
+    test("it should be able to get the item path", () => {
+        const store = new Store({ className: "item", id: "test", credentials });
+        let itemPath = store.getItemPath();
+        expect(itemPath).toEqual("item/t/test");
+    });
+    test("it should be able to create items with path splay = 2", () => {
+        const store = new Store({ className: "item", id: "test", credentials, splay: 2 });
+        let itemPath = store.getItemPath();
+        expect(itemPath).toEqual("item/te/test");
+    });
+    test("it should be able to create items with path splay = 10", () => {
+        const store = new Store({ className: "item", id: "test", credentials, splay: 10 });
+        let itemPath = store.getItemPath();
+        expect(itemPath).toEqual("item/test/test");
+    });
     test("it should be able to create a new item", async () => {
         const itemPath = path.join("item", "t", "test");
         await bucket.removeObjects({ prefix: itemPath });

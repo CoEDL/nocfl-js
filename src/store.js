@@ -7,8 +7,8 @@ import hasha from "hasha";
 
 export class Store {
     /*
-     *   @param: {String} className - the class name of the item being operated on
-     *   @param: {String} id - the id of the item being operated on
+     *   @param: {String} className - the class name of the item being operated on - must match: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$
+     *   @param: {String} id - the id of the item being operated on - must match: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$
      *   @param: {String} [domain] - provide this to prefix the paths by domain
      *   @param: {String} credentials.bucket - the AWS bucket to connect to
      *   @param: {String} credentials.accessKeyId - the AWS accessKey
@@ -16,10 +16,12 @@ export class Store {
      *   @param: {String} credentials.region - the AWS region
      *   @param: {String} [credentials.endpoint] - the endpoint URL when using an S3 like service (e.g. Minio)
      *   @param: {Boolean} [credentials.forcePathStyle] - whether to force path style endpoints (required for Minio and the like)
+     *   @param: {Number} [splay=1] - the number of characters (from the start of the identifer) when converting the id to a path
      */
-    constructor({ domain, className, id, credentials }) {
+    constructor({ domain, className, id, credentials, splay = 1 }) {
         if (!id) throw new Error(`Missing required property: 'id'`);
         if (!className) throw new Error(`Missing required property: 'className'`);
+        if (!credentials) throw new Error(`Missing required property: 'credentials'`);
 
         const requiredProperties = ["bucket", "accessKeyId", "secretAccessKey", "region"];
         requiredProperties.forEach((property) => {
@@ -27,13 +29,24 @@ export class Store {
                 throw new Error(`Missing required property: '${property}'`);
             }
         });
+
+        if (!id.match(/^[a-z,A-Z][a-z,A-Z,0-9,_]+$/)) {
+            throw new Error(
+                `The identifier doesn't match the allowed format: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$`
+            );
+        }
+        if (!className.match(/^[a-z,A-Z][a-z,A-Z,0-9,_]+$/)) {
+            throw new Error(
+                `The className doesn't match the allowed format: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$`
+            );
+        }
         this.credentials = credentials;
         this.bucket = new Bucket(credentials);
         this.id = id;
         this.className = className;
         this.itemPath = domain
-            ? `${domain}/${className}/${id.charAt(0)}/${id}`
-            : `${className}/${id.charAt(0)}/${id}`;
+            ? `${domain}/${className}/${id.slice(0, splay)}/${id}`
+            : `${className}/${id.slice(0, splay)}/${id}`;
         this.roCrateFile = nodePath.join(this.itemPath, "ro-crate-metadata.json");
         this.inventoryFile = nodePath.join(this.itemPath, "inventory.json");
         this.roCrateSkeleton = {
@@ -66,7 +79,7 @@ export class Store {
     }
 
     /*
-     *   @description: Check whether the item exists in the storage
+     *   @description {String}: Check whether the item exists in the storage
      *   @returns {Boolean}
      */
     async itemExists() {
@@ -84,7 +97,15 @@ export class Store {
     }
 
     /*
-     *   @description: Check whether the path exists in the storage
+     *   @description {String}: Get the item path
+     *   @returns {String}
+     */
+    getItemPath() {
+        return this.itemPath;
+    }
+
+    /*
+     *   @description {String}: Check whether the path exists in the storage
      *   @returns {Boolean}
      */
     async pathExists({ path }) {
@@ -98,7 +119,7 @@ export class Store {
     }
 
     /*
-     *   @description: Create the item in the storage
+     *   @description {String}: Create the item in the storage
      *   @returns {Boolean}
      */
     async createItem() {
@@ -118,7 +139,7 @@ export class Store {
     }
 
     /*
-     *   @description: get a file from the item on the storage
+     *   @description {String}: get a file from the item on the storage
      *   @param: {String} localPath - the path to the file locally where you want to download the file to
      *   @param: {String} target - the file on the storage, relative to the item path, that you want to download
      */
@@ -129,7 +150,7 @@ export class Store {
     }
 
     /*
-     *   @description: get a presigned-url to the file
+     *   @description {String}: get a presigned-url to the file
      *   @param: {String} target - the file on the storage, relative to the item path, that you want the url for
      */
     async getPresignedUrl({ target }) {
@@ -138,7 +159,7 @@ export class Store {
     }
 
     /*
-     *   @description: put a file into the item on the storage
+     *   @description {String}: put a file into the item on the storage
      *   @param: {String} localPath - the path to the file locally that you want to upload to the item folder
      *   @param: {String} target - the target name for the file; this will be set relative to the item path
      */
@@ -160,7 +181,7 @@ export class Store {
     }
 
     /*
-     *   @description: recursively walk and list all of the files for the item
+     *   @description {String}: recursively walk and list all of the files for the item
      *   @returns: a list of files
      */
     async listResources({ continuationToken }) {
