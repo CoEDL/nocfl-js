@@ -83,7 +83,7 @@
   <body>
 
     <nav class="navbar" id="navbar">
-      <div class="navbar-heading" id="navbar-heading"><a href="index.html"><h2 class="navbar-heading-text">Home</h2></a></div><div class="search-box" id="search-box"><div class="search-box-input-container"><input class="search-box-input" type="text" placeholder="Search..." id="search-box-input" /><svg class="search-icon" alt="search-icon"><use xlink:href="#search-icon"></use></svg></div><div class="search-item-container" id="search-item-container"><ul class="search-item-ul" id="search-item-ul"></ul></div></div><div class="sidebar-main-content" id="sidebar-main-content"><div class="accordion collapsed" id="7930634" > <h3 class="accordion-heading">Classes<svg><use xlink:href="#down-icon"></use></svg></h3><ul class="accordion-content"><li class="accordion collapsed child" id=9868063><div class="accordion-heading child"><a href="Store.html">Store</a><svg><use xlink:href="#down-icon"></use></svg></div><ul class='methods accordion-content'><li data-type='method'><a href="Store.html#createItem">createItem</a></li><li data-type='method'><a href="Store.html#get">get</a></li><li data-type='method'><a href="Store.html#getItemPath">getItemPath</a></li><li data-type='method'><a href="Store.html#getPresignedUrl">getPresignedUrl</a></li><li data-type='method'><a href="Store.html#itemExists">itemExists</a></li><li data-type='method'><a href="Store.html#listResources">listResources</a></li><li data-type='method'><a href="Store.html#pathExists">pathExists</a></li><li data-type='method'><a href="Store.html#put">put</a></li><li data-type='method'><a href="Store.html#stat">stat</a></li></ul></li></ul> </div>
+      <div class="navbar-heading" id="navbar-heading"><a href="index.html"><h2 class="navbar-heading-text">Home</h2></a></div><div class="search-box" id="search-box"><div class="search-box-input-container"><input class="search-box-input" type="text" placeholder="Search..." id="search-box-input" /><svg class="search-icon" alt="search-icon"><use xlink:href="#search-icon"></use></svg></div><div class="search-item-container" id="search-item-container"><ul class="search-item-ul" id="search-item-ul"></ul></div></div><div class="sidebar-main-content" id="sidebar-main-content"><div class="accordion collapsed" id="3681148" > <h3 class="accordion-heading">Classes<svg><use xlink:href="#down-icon"></use></svg></h3><ul class="accordion-content"><li class="accordion collapsed child" id=7268684><div class="accordion-heading child"><a href="Store.html">Store</a><svg><use xlink:href="#down-icon"></use></svg></div><ul class='methods accordion-content'><li data-type='method'><a href="Store.html#createItem">createItem</a></li><li data-type='method'><a href="Store.html#get">get</a></li><li data-type='method'><a href="Store.html#getItemPath">getItemPath</a></li><li data-type='method'><a href="Store.html#getPresignedUrl">getPresignedUrl</a></li><li data-type='method'><a href="Store.html#itemExists">itemExists</a></li><li data-type='method'><a href="Store.html#listResources">listResources</a></li><li data-type='method'><a href="Store.html#pathExists">pathExists</a></li><li data-type='method'><a href="Store.html#put">put</a></li><li data-type='method'><a href="Store.html#stat">stat</a></li></ul></li></ul> </div>
       
 
     </nav>
@@ -127,7 +127,70 @@ just that we needed something different.</p>
 <p>This library has extensive tests. To run them: <code>npm run test:watch</code>. You will need docker as this
 command will start a local S3 service called <a href="https://hub.docker.com/r/minio/minio/">MinIO</a>.</p>
 <h1 id="documentation">Documentation</h1>
-<p><a href="https://coedl.github.io/nocfl-js/">https://coedl.github.io/nocfl-js/</a></p></article>
+<p><a href="https://coedl.github.io/nocfl-js/">https://coedl.github.io/nocfl-js/</a></p>
+<h1 id="about-this-library">About this library</h1>
+<p>This library is intended to simplify working with data in an S3 bucket. Its primary objective is to
+ease the creation and management of data objects in the bucket in a well defined way. Accordingly,
+the API is intentionally simple. You define some properties when creating a hook to the bucket and
+then get / put data from it. The library will produce an inventory file for you as well as a
+skeleton <a href="https://www.researchobject.org/ro-crate">Research Object Crate - RO-Crate</a>.</p>
+<h2 id="creating-a-new-item">Creating a new item</h2>
+<p>When creating a new item you need to</p>
+<ul>
+<li>pass in the primary class of the data type (e.g. Collection, Item, Person etc)</li>
+<li>pass in the item identifier</li>
+<li>optionally, you can pass in a domain name</li>
+</ul>
+<p>Both <code>id</code> and <code>className</code> must start with letter (upper or lowercase) and be followed by any number
+of letters (upper and lower), numbers and underscore. Any other characters will not be accepted and
+result in an error. Path creation will use the first letter of the identifier to prefix the item
+(this is configurable by defining the splay property in the constructor). The domain and class name
+will be lowercased.</p>
+<p>Path creation from the identifier is illustrated following:</p>
+<p>Examples:</p>
+<ul>
+<li>
+<p>class: Collection, id: test -&gt; <code>(bucket)/collection/t/test (splay = default = 1)</code></p>
+</li>
+<li>
+<p>class: Item, id: test -&gt; <code>(bucket)/item/t/test (splay = default = 1)</code></p>
+</li>
+<li>
+<p>domain: example.com, class: Item, id: test -&gt;
+<code>(bucket)/example.com/item/t/test (splay = default = 1)</code></p>
+</li>
+<li>
+<p>domain: eXamPLe.cOm, class: Item, id: test -&gt;
+<code>(bucket)/example.com/item/t/test (splay = default = 1)</code></p>
+</li>
+<li>
+<p>class: Collection, id: test, splay: 2 -&gt; <code>(bucket)/collection/te/test</code></p>
+</li>
+<li>
+<p>class: Collection, id: test, splay: 4 -&gt; <code>(bucket)/collection/test/test</code></p>
+</li>
+<li>
+<p>class: Collection, id: test, splay: 10 -&gt; <code>(bucket)/collection/test/test</code></p>
+</li>
+</ul>
+<h2 id="example-usage">Example usage</h2>
+<h3 id="create-an-item-and-put-a-file-to-it">Create an item and put a file to it</h3>
+<pre class="prettyprint source"><code>// get a hook to the storage
+const store = new Store({ className: &quot;item&quot;, id: &quot;test&quot;, credentials });
+
+// create the item
+await store.createItem();
+
+// upload a file to it
+await store.put({ localPath: path.join(__dirname, file), target: file });
+
+// download a file from the storage
+await store.get({ target: file, localPath: path.join(&quot;/tmp&quot;, file) });
+
+// get a pre signed link to a file
+let link = await store.getPresignedUrl({ target: file });
+</code></pre>
+<p>See the <a href="./src/store.spec.js">tests</a> for more usage examples.</p></article>
     </section>
 
 

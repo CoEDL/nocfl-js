@@ -83,7 +83,7 @@
   <body>
 
     <nav class="navbar" id="navbar">
-      <div class="navbar-heading" id="navbar-heading"><a href="index.html"><h2 class="navbar-heading-text">Home</h2></a></div><div class="search-box" id="search-box"><div class="search-box-input-container"><input class="search-box-input" type="text" placeholder="Search..." id="search-box-input" /><svg class="search-icon" alt="search-icon"><use xlink:href="#search-icon"></use></svg></div><div class="search-item-container" id="search-item-container"><ul class="search-item-ul" id="search-item-ul"></ul></div></div><div class="sidebar-main-content" id="sidebar-main-content"><div class="accordion collapsed" id="7930634" > <h3 class="accordion-heading">Classes<svg><use xlink:href="#down-icon"></use></svg></h3><ul class="accordion-content"><li class="accordion collapsed child" id=9868063><div class="accordion-heading child"><a href="Store.html">Store</a><svg><use xlink:href="#down-icon"></use></svg></div><ul class='methods accordion-content'><li data-type='method'><a href="Store.html#createItem">createItem</a></li><li data-type='method'><a href="Store.html#get">get</a></li><li data-type='method'><a href="Store.html#getItemPath">getItemPath</a></li><li data-type='method'><a href="Store.html#getPresignedUrl">getPresignedUrl</a></li><li data-type='method'><a href="Store.html#itemExists">itemExists</a></li><li data-type='method'><a href="Store.html#listResources">listResources</a></li><li data-type='method'><a href="Store.html#pathExists">pathExists</a></li><li data-type='method'><a href="Store.html#put">put</a></li><li data-type='method'><a href="Store.html#stat">stat</a></li></ul></li></ul> </div>
+      <div class="navbar-heading" id="navbar-heading"><a href="index.html"><h2 class="navbar-heading-text">Home</h2></a></div><div class="search-box" id="search-box"><div class="search-box-input-container"><input class="search-box-input" type="text" placeholder="Search..." id="search-box-input" /><svg class="search-icon" alt="search-icon"><use xlink:href="#search-icon"></use></svg></div><div class="search-item-container" id="search-item-container"><ul class="search-item-ul" id="search-item-ul"></ul></div></div><div class="sidebar-main-content" id="sidebar-main-content"><div class="accordion collapsed" id="3681148" > <h3 class="accordion-heading">Classes<svg><use xlink:href="#down-icon"></use></svg></h3><ul class="accordion-content"><li class="accordion collapsed child" id=7268684><div class="accordion-heading child"><a href="Store.html">Store</a><svg><use xlink:href="#down-icon"></use></svg></div><ul class='methods accordion-content'><li data-type='method'><a href="Store.html#createItem">createItem</a></li><li data-type='method'><a href="Store.html#get">get</a></li><li data-type='method'><a href="Store.html#getItemPath">getItemPath</a></li><li data-type='method'><a href="Store.html#getPresignedUrl">getPresignedUrl</a></li><li data-type='method'><a href="Store.html#itemExists">itemExists</a></li><li data-type='method'><a href="Store.html#listResources">listResources</a></li><li data-type='method'><a href="Store.html#pathExists">pathExists</a></li><li data-type='method'><a href="Store.html#put">put</a></li><li data-type='method'><a href="Store.html#stat">stat</a></li></ul></li></ul> </div>
       
 
     </nav>
@@ -115,6 +115,7 @@ const { createReadStream } = fsExtra;
 import crypto from "crypto";
 import * as nodePath from "path";
 import hasha from "hasha";
+import { isString, isUndefined } from "lodash";
 
 /** Class representing an S3 store. */
 export class Store {
@@ -132,7 +133,7 @@ export class Store {
      * @param {boolean} [credentials.forcePathStyle] - whether to force path style endpoints (required for Minio and the like)
      * @param {number} [splay=1] - the number of characters (from the start of the identifer) when converting the id to a path
      */
-    constructor({ domain, className, id, credentials, splay = 1 }) {
+    constructor({ domain = undefined, className, id, credentials, splay = 1 }) {
         if (!id) throw new Error(`Missing required property: 'id'`);
         if (!className) throw new Error(`Missing required property: 'className'`);
         if (!credentials) throw new Error(`Missing required property: 'credentials'`);
@@ -154,13 +155,23 @@ export class Store {
                 `The className doesn't match the allowed format: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$`
             );
         }
+
+        if (!isString(id)) {
+            throw new Error(`The 'id' must be a string`);
+        }
+        if (!isString(className)) {
+            throw new Error(`The 'className' must be a string`);
+        }
+        if (!isString(domain) &amp;&amp; !isUndefined(domain)) {
+            throw new Error(`The 'domain' must be a string`);
+        }
         this.credentials = credentials;
         this.bucket = new Bucket(credentials);
         this.id = id;
         this.className = className;
         this.itemPath = domain
-            ? `${domain}/${className}/${id.slice(0, splay)}/${id}`
-            : `${className}/${id.slice(0, splay)}/${id}`;
+            ? `${domain.toLowerCase()}/${className.toLowerCase()}/${id.slice(0, splay)}/${id}`
+            : `${className.toLowerCase()}/${id.slice(0, splay)}/${id}`;
         this.roCrateFile = nodePath.join(this.itemPath, "ro-crate-metadata.json");
         this.inventoryFile = nodePath.join(this.itemPath, "inventory.json");
         this.roCrateSkeleton = {
