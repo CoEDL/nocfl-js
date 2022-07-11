@@ -299,8 +299,8 @@ export class Bucket {
         }
     }
 
-    async getPresignedUrl({ target, expiresIn = 3600, download = false }) {
-        let filename = target.split("/").pop();
+    async getPresignedUrl({ target, expiresIn = 3600, download = false, host }) {
+        let filename = path.basename(target);
         const downloadParams = {
             Bucket: this.bucket,
             Key: target,
