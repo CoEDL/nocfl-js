@@ -5,11 +5,13 @@ const { pathExists, remove, readJSON, readFile, readdir, stat: fileStat } = fsEx
 import path from "path";
 
 describe("Test storage actions", () => {
+    const endpoint = "http://localhost:10000";
+    const repository = "repository";
     const credentials = {
-        bucket: "repository",
+        bucket: repository,
         accessKeyId: "root",
         secretAccessKey: "rootpass",
-        endpoint: "http://localhost:10000",
+        endpoint,
         forcePathStyle: true,
         region: "us-west-1",
     };
@@ -262,6 +264,22 @@ describe("Test storage actions", () => {
         expect(stat.ContentLength).toEqual(fstat.size);
 
         await bucket.removeObjects({ prefix: itemPath });
+    });
+    test("it should be able to get a presigned link to a file", async () => {
+        const itemPath = path.join("item", "t", "test");
+        await bucket.removeObjects({ prefix: itemPath });
+
+        const file = "s3.js";
+        const store = new Store({ className: "item", id: "test", credentials });
+        await store.createItem();
+
+        await store.put({ localPath: path.join(__dirname, file), target: file });
+
+        let link = await store.getPresignedUrl({ target: "s3.js" });
+        expect(link).toMatch(`${endpoint}/${repository}/item/t/test/s3.js`);
+
+        await bucket.removeObjects({ prefix: itemPath });
+        await remove(path.join("/tmp", file));
     });
 });
 

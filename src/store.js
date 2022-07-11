@@ -10,12 +10,12 @@ export class Store {
      *   @param: {String} className - the class name of the item being operated on
      *   @param: {String} id - the id of the item being operated on
      *   @param: {String} [domain] - provide this to prefix the paths by domain
-     *   @param: {String} bucket - the AWS bucket to connect to
-     *   @param: {String} accessKeyId - the AWS accessKey
-     *   @param: {String} secretAccessKey - the AWS secretAccessKey
-     *   @param: {String} region - the AWS region
-     *   @param: {String} [endpoint] - the endpoint URL when using an S3 like service (e.g. Minio)
-     *   @param: {Boolean} [forcePathStyle] - whether to force path style endpoints (required for Minio and the like)
+     *   @param: {String} credentials.bucket - the AWS bucket to connect to
+     *   @param: {String} credentials.accessKeyId - the AWS accessKey
+     *   @param: {String} credentials.secretAccessKey - the AWS secretAccessKey
+     *   @param: {String} credentials.region - the AWS region
+     *   @param: {String} [credentials.endpoint] - the endpoint URL when using an S3 like service (e.g. Minio)
+     *   @param: {Boolean} [credentials.forcePathStyle] - whether to force path style endpoints (required for Minio and the like)
      */
     constructor({ domain, className, id, credentials }) {
         if (!id) throw new Error(`Missing required property: 'id'`);
@@ -126,6 +126,15 @@ export class Store {
         target = nodePath.join(this.itemPath, target);
 
         return await this.bucket.download({ target, localPath });
+    }
+
+    /*
+     *   @description: get a presigned-url to the file
+     *   @param: {String} target - the file on the storage, relative to the item path, that you want the url for
+     */
+    async getPresignedUrl({ target }) {
+        target = nodePath.join(this.itemPath, target);
+        return await this.bucket.getPresignedUrl({ target });
     }
 
     /*
