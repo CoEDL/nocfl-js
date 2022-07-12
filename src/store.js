@@ -34,6 +34,16 @@ export class Store {
             }
         });
 
+        if (!isString(id)) {
+            throw new Error(`The 'id' must be a string`);
+        }
+        if (!isString(className)) {
+            throw new Error(`The 'className' must be a string`);
+        }
+        if (!isString(domain) && !isUndefined(domain)) {
+            throw new Error(`The 'domain' must be a string`);
+        }
+
         if (!id.match(/^[a-z,A-Z][a-z,A-Z,0-9,_]+$/)) {
             throw new Error(
                 `The identifier doesn't match the allowed format: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$`
@@ -45,15 +55,6 @@ export class Store {
             );
         }
 
-        if (!isString(id)) {
-            throw new Error(`The 'id' must be a string`);
-        }
-        if (!isString(className)) {
-            throw new Error(`The 'className' must be a string`);
-        }
-        if (!isString(domain) && !isUndefined(domain)) {
-            throw new Error(`The 'domain' must be a string`);
-        }
         this.credentials = credentials;
         this.bucket = new Bucket(credentials);
         this.id = id;
