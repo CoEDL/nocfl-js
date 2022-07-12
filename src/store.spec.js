@@ -78,6 +78,13 @@ describe("Test storage actions", () => {
         let itemPath = store.getItemPath();
         expect(itemPath).toEqual("item/t/test");
     });
+    test.only("it should be able to get the item identifier", async () => {
+        const store = new Store({ className: "item", id: "test", credentials });
+        await store.createItem();
+        let identifier = await store.getItemIdentifier();
+        console.log(identifier.itemPath);
+        await bucket.removeObjects({ prefix: path.join("item", "t", "test") });
+    });
     test("it should be able to create items with path splay = 2", () => {
         const store = new Store({ className: "item", id: "test", credentials, splay: 2 });
         let itemPath = store.getItemPath();
@@ -95,12 +102,15 @@ describe("Test storage actions", () => {
         const store = new Store({ className: "item", id: "test", credentials });
         await store.createItem();
         let resources = await store.listResources({});
-        expect(resources.length).toEqual(2);
+        expect(resources.length).toEqual(3);
         expect(getFile({ resources, file: "ro-crate-metadata.json" }).Key).toEqual(
             "item/t/test/ro-crate-metadata.json"
         );
-        expect(getFile({ resources, file: "inventory.json" }).Key).toEqual(
-            "item/t/test/inventory.json"
+        expect(getFile({ resources, file: "nocfl.inventory.json" }).Key).toEqual(
+            "item/t/test/nocfl.inventory.json"
+        );
+        expect(getFile({ resources, file: "nocfl.inventory.json" }).Key).toEqual(
+            "item/t/test/nocfl.inventory.json"
         );
 
         await bucket.removeObjects({ prefix: itemPath });
@@ -134,7 +144,7 @@ describe("Test storage actions", () => {
         await store.createItem();
         await store.put({ target: file, localPath: path.join(__dirname, file) });
         let resources = await store.listResources({});
-        expect(resources.length).toEqual(3);
+        expect(resources.length).toEqual(4);
 
         await bucket.removeObjects({ prefix: itemPath });
     });
@@ -189,7 +199,7 @@ describe("Test storage actions", () => {
 
         await store.put({ localPath: path.join(__dirname, file), target: file });
         let resources = await store.listResources({});
-        expect(resources.length).toEqual(3);
+        expect(resources.length).toEqual(4);
         expect(getFile({ resources, file }).Key).toEqual(path.join(itemPath, "s3.js"));
 
         await store.get({ target: file, localPath: path.join("/tmp", file) });
@@ -209,7 +219,7 @@ describe("Test storage actions", () => {
 
         await store.put({ localPath: path.join(__dirname, file), target: `some/path/to/${file}` });
         let resources = await store.listResources({});
-        expect(resources.length).toEqual(3);
+        expect(resources.length).toEqual(4);
         expect(getFile({ resources, file }).Key).toEqual(path.join(itemPath, "some/path/to/s3.js"));
 
         await bucket.removeObjects({ prefix: itemPath });
@@ -285,7 +295,7 @@ describe("Test storage actions", () => {
 
         await store.put({ localPath: path.join(__dirname, file), target: file });
         let resources = await store.listResources({});
-        expect(resources.length).toEqual(3);
+        expect(resources.length).toEqual(4);
 
         await bucket.removeObjects({ prefix: itemPath });
     });

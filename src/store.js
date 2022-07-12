@@ -6,6 +6,8 @@ import * as nodePath from "path";
 import hasha from "hasha";
 import { isString, isUndefined } from "lodash";
 
+const specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
+
 /** Class representing an S3 store. */
 export class Store {
     /**
@@ -59,11 +61,13 @@ export class Store {
         this.bucket = new Bucket(credentials);
         this.id = id;
         this.className = className;
+        this.domain = domain;
         this.itemPath = domain
             ? `${domain.toLowerCase()}/${className.toLowerCase()}/${id.slice(0, splay)}/${id}`
             : `${className.toLowerCase()}/${id.slice(0, splay)}/${id}`;
         this.roCrateFile = nodePath.join(this.itemPath, "ro-crate-metadata.json");
-        this.inventoryFile = nodePath.join(this.itemPath, "inventory.json");
+        this.inventoryFile = nodePath.join(this.itemPath, "nocfl.inventory.json");
+        this.identifierFile = nodePath.join(this.itemPath, "nocfl.identifier.json");
         this.roCrateSkeleton = {
             "@context": [
                 "https://w3id.org/ro/crate/1.1/context",
@@ -120,6 +124,14 @@ export class Store {
     }
 
     /**
+     * Get the item identifier
+     * @return {String}
+     */
+    async getItemIdentifier() {
+        return JSON.parse(await this.get({ target: "nocfl.identifier.json" }));
+    }
+
+    /**
      * Check whether the path exists in the storage
      * @param {String} path - the path of the file to check - this is relative to the item root
      * @return {Boolean}
@@ -149,13 +161,23 @@ export class Store {
         }
         let roCrateFileHash = hasha(JSON.stringify(this.roCrateSkeleton));
         await this.bucket.upload({
-            target: nodePath.join(this.itemPath, "ro-crate-metadata.json"),
+            target: this.roCrateFile,
             json: this.roCrateSkeleton,
         });
 
         await this.bucket.upload({
-            target: nodePath.join(this.itemPath, "inventory.json"),
+            target: this.inventoryFile,
             json: { content: { "ro-crate-metadata.json": roCrateFileHash } },
+        });
+
+        await this.bucket.upload({
+            target: this.identifierFile,
+            json: {
+                id: this.id,
+                className: this.className,
+                domain: this.domain,
+                itemPath: this.itemPath,
+            },
         });
     }
 
@@ -227,11 +249,10 @@ export class Store {
      * @return a list of files
      */
     async __updateInventory({ target, hash }) {
-        let inventoryFile = nodePath.join(this.itemPath, "inventory.json");
-        let inventory = JSON.parse(await this.bucket.download({ target: inventoryFile }));
+        let inventory = JSON.parse(await this.bucket.download({ target: this.inventoryFile }));
         inventory.content[target] = hash;
         await this.bucket.upload({
-            target: inventoryFile,
+            target: this.inventoryFile,
             json: inventory,
         });
     }
