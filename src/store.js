@@ -125,10 +125,18 @@ export class Store {
 
     /**
      * Get the item identifier
-     * @return {String}
+     * @return {Object}
      */
     async getItemIdentifier() {
         return JSON.parse(await this.get({ target: "nocfl.identifier.json" }));
+    }
+
+    /**
+     * Get the item inventory file
+     * @return {Object}
+     */
+    async getItemInventory() {
+        return JSON.parse(await this.get({ target: "nocfl.inventory.json" }));
     }
 
     /**

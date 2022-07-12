@@ -82,6 +82,17 @@ describe("Test storage actions", () => {
         const store = new Store({ className: "item", id: "test", credentials });
         await store.createItem();
         let identifier = await store.getItemIdentifier();
+        expect(identifier.id).toEqual("test");
+        expect(identifier.className).toEqual("item");
+        expect(identifier.itemPath).toEqual("item/t/test");
+        await bucket.removeObjects({ prefix: path.join("item", "t", "test") });
+    });
+    test("it should be able to get the item identifier", async () => {
+        await bucket.removeObjects({ prefix: path.join("item", "t", "test") });
+        const store = new Store({ className: "item", id: "test", credentials });
+        await store.createItem();
+        let inventory = await store.getItemInventory();
+        expect(inventory.content["ro-crate-metadata.json"]).toBeDefined;
         await bucket.removeObjects({ prefix: path.join("item", "t", "test") });
     });
     test("it should be able to create items with path splay = 2", () => {
