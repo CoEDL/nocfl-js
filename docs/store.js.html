@@ -83,7 +83,7 @@
   <body>
 
     <nav class="navbar" id="navbar">
-      <div class="navbar-heading" id="navbar-heading"><a href="index.html"><h2 class="navbar-heading-text">Home</h2></a></div><div class="search-box" id="search-box"><div class="search-box-input-container"><input class="search-box-input" type="text" placeholder="Search..." id="search-box-input" /><svg class="search-icon" alt="search-icon"><use xlink:href="#search-icon"></use></svg></div><div class="search-item-container" id="search-item-container"><ul class="search-item-ul" id="search-item-ul"></ul></div></div><div class="sidebar-main-content" id="sidebar-main-content"><div class="accordion collapsed" id="3681148" > <h3 class="accordion-heading">Classes<svg><use xlink:href="#down-icon"></use></svg></h3><ul class="accordion-content"><li class="accordion collapsed child" id=7268684><div class="accordion-heading child"><a href="Store.html">Store</a><svg><use xlink:href="#down-icon"></use></svg></div><ul class='methods accordion-content'><li data-type='method'><a href="Store.html#createItem">createItem</a></li><li data-type='method'><a href="Store.html#get">get</a></li><li data-type='method'><a href="Store.html#getItemPath">getItemPath</a></li><li data-type='method'><a href="Store.html#getPresignedUrl">getPresignedUrl</a></li><li data-type='method'><a href="Store.html#itemExists">itemExists</a></li><li data-type='method'><a href="Store.html#listResources">listResources</a></li><li data-type='method'><a href="Store.html#pathExists">pathExists</a></li><li data-type='method'><a href="Store.html#put">put</a></li><li data-type='method'><a href="Store.html#stat">stat</a></li></ul></li></ul> </div>
+      <div class="navbar-heading" id="navbar-heading"><a href="index.html"><h2 class="navbar-heading-text">Home</h2></a></div><div class="search-box" id="search-box"><div class="search-box-input-container"><input class="search-box-input" type="text" placeholder="Search..." id="search-box-input" /><svg class="search-icon" alt="search-icon"><use xlink:href="#search-icon"></use></svg></div><div class="search-item-container" id="search-item-container"><ul class="search-item-ul" id="search-item-ul"></ul></div></div><div class="sidebar-main-content" id="sidebar-main-content"><div class="accordion collapsed" id="3981941" > <h3 class="accordion-heading">Classes<svg><use xlink:href="#down-icon"></use></svg></h3><ul class="accordion-content"><li class="accordion collapsed child" id=7096171><div class="accordion-heading child"><a href="Store.html">Store</a><svg><use xlink:href="#down-icon"></use></svg></div><ul class='methods accordion-content'><li data-type='method'><a href="Store.html#createItem">createItem</a></li><li data-type='method'><a href="Store.html#get">get</a></li><li data-type='method'><a href="Store.html#getItemIdentifier">getItemIdentifier</a></li><li data-type='method'><a href="Store.html#getItemInventory">getItemInventory</a></li><li data-type='method'><a href="Store.html#getItemPath">getItemPath</a></li><li data-type='method'><a href="Store.html#getPresignedUrl">getPresignedUrl</a></li><li data-type='method'><a href="Store.html#itemExists">itemExists</a></li><li data-type='method'><a href="Store.html#listResources">listResources</a></li><li data-type='method'><a href="Store.html#pathExists">pathExists</a></li><li data-type='method'><a href="Store.html#put">put</a></li><li data-type='method'><a href="Store.html#stat">stat</a></li></ul></li></ul> </div>
       
 
     </nav>
@@ -117,6 +117,8 @@ import * as nodePath from "path";
 import hasha from "hasha";
 import { isString, isUndefined } from "lodash";
 
+const specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
+
 /** Class representing an S3 store. */
 export class Store {
     /**
@@ -145,6 +147,16 @@ export class Store {
             }
         });
 
+        if (!isString(id)) {
+            throw new Error(`The 'id' must be a string`);
+        }
+        if (!isString(className)) {
+            throw new Error(`The 'className' must be a string`);
+        }
+        if (!isString(domain) &amp;&amp; !isUndefined(domain)) {
+            throw new Error(`The 'domain' must be a string`);
+        }
+
         if (!id.match(/^[a-z,A-Z][a-z,A-Z,0-9,_]+$/)) {
             throw new Error(
                 `The identifier doesn't match the allowed format: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$`
@@ -156,24 +168,17 @@ export class Store {
             );
         }
 
-        if (!isString(id)) {
-            throw new Error(`The 'id' must be a string`);
-        }
-        if (!isString(className)) {
-            throw new Error(`The 'className' must be a string`);
-        }
-        if (!isString(domain) &amp;&amp; !isUndefined(domain)) {
-            throw new Error(`The 'domain' must be a string`);
-        }
         this.credentials = credentials;
         this.bucket = new Bucket(credentials);
         this.id = id;
         this.className = className;
+        this.domain = domain;
         this.itemPath = domain
             ? `${domain.toLowerCase()}/${className.toLowerCase()}/${id.slice(0, splay)}/${id}`
             : `${className.toLowerCase()}/${id.slice(0, splay)}/${id}`;
         this.roCrateFile = nodePath.join(this.itemPath, "ro-crate-metadata.json");
-        this.inventoryFile = nodePath.join(this.itemPath, "inventory.json");
+        this.inventoryFile = nodePath.join(this.itemPath, "nocfl.inventory.json");
+        this.identifierFile = nodePath.join(this.itemPath, "nocfl.identifier.json");
         this.roCrateSkeleton = {
             "@context": [
                 "https://w3id.org/ro/crate/1.1/context",
@@ -230,6 +235,22 @@ export class Store {
     }
 
     /**
+     * Get the item identifier
+     * @return {Object}
+     */
+    async getItemIdentifier() {
+        return JSON.parse(await this.get({ target: "nocfl.identifier.json" }));
+    }
+
+    /**
+     * Get the item inventory file
+     * @return {Object}
+     */
+    async getItemInventory() {
+        return JSON.parse(await this.get({ target: "nocfl.inventory.json" }));
+    }
+
+    /**
      * Check whether the path exists in the storage
      * @param {String} path - the path of the file to check - this is relative to the item root
      * @return {Boolean}
@@ -259,13 +280,23 @@ export class Store {
         }
         let roCrateFileHash = hasha(JSON.stringify(this.roCrateSkeleton));
         await this.bucket.upload({
-            target: nodePath.join(this.itemPath, "ro-crate-metadata.json"),
+            target: this.roCrateFile,
             json: this.roCrateSkeleton,
         });
 
         await this.bucket.upload({
-            target: nodePath.join(this.itemPath, "inventory.json"),
+            target: this.inventoryFile,
             json: { content: { "ro-crate-metadata.json": roCrateFileHash } },
+        });
+
+        await this.bucket.upload({
+            target: this.identifierFile,
+            json: {
+                id: this.id,
+                className: this.className,
+                domain: this.domain,
+                itemPath: this.itemPath,
+            },
         });
     }
 
@@ -295,7 +326,13 @@ export class Store {
      * @param {String} target - the target name for the file; this will be set relative to the item path
      */
     async put({ localPath, json, content, target }) {
+        if (specialFiles.includes(target)) {
+            throw new Error(
+                `You can't upload a file called '${target} as that's a special file used by the system`
+            );
+        }
         let s3Target = nodePath.join(this.itemPath, target);
+
         if (!(await this.itemExists())) {
             throw new Error(`You need to 'createItem' before you can add content to it`);
         }
@@ -337,11 +374,10 @@ export class Store {
      * @return a list of files
      */
     async __updateInventory({ target, hash }) {
-        let inventoryFile = nodePath.join(this.itemPath, "inventory.json");
-        let inventory = JSON.parse(await this.bucket.download({ target: inventoryFile }));
+        let inventory = JSON.parse(await this.bucket.download({ target: this.inventoryFile }));
         inventory.content[target] = hash;
         await this.bucket.upload({
-            target: inventoryFile,
+            target: this.inventoryFile,
             json: inventory,
         });
     }
@@ -380,7 +416,7 @@ const sha512 = (path) =>
       <script src="scripts/search.js"></script>
       <script src="scripts/third-party/fuse.js"></script>
       <script>
-        var list = [{"title":"Store","link":"<a href=\"Store.html\">Store</a>"},{"title":"Store#createItem","link":"<a href=\"Store.html#createItem\">Store &rtrif; createItem</a>"},{"title":"Store#get","link":"<a href=\"Store.html#get\">Store &rtrif; get</a>"},{"title":"Store#getItemPath","link":"<a href=\"Store.html#getItemPath\">Store &rtrif; getItemPath</a>"},{"title":"Store#getPresignedUrl","link":"<a href=\"Store.html#getPresignedUrl\">Store &rtrif; getPresignedUrl</a>"},{"title":"Store#itemExists","link":"<a href=\"Store.html#itemExists\">Store &rtrif; itemExists</a>"},{"title":"Store#listResources","link":"<a href=\"Store.html#listResources\">Store &rtrif; listResources</a>"},{"title":"Store#pathExists","link":"<a href=\"Store.html#pathExists\">Store &rtrif; pathExists</a>"},{"title":"Store#put","link":"<a href=\"Store.html#put\">Store &rtrif; put</a>"},{"title":"Store#stat","link":"<a href=\"Store.html#stat\">Store &rtrif; stat</a>"}];
+        var list = [{"title":"Store","link":"<a href=\"Store.html\">Store</a>"},{"title":"Store#createItem","link":"<a href=\"Store.html#createItem\">Store &rtrif; createItem</a>"},{"title":"Store#get","link":"<a href=\"Store.html#get\">Store &rtrif; get</a>"},{"title":"Store#getItemIdentifier","link":"<a href=\"Store.html#getItemIdentifier\">Store &rtrif; getItemIdentifier</a>"},{"title":"Store#getItemInventory","link":"<a href=\"Store.html#getItemInventory\">Store &rtrif; getItemInventory</a>"},{"title":"Store#getItemPath","link":"<a href=\"Store.html#getItemPath\">Store &rtrif; getItemPath</a>"},{"title":"Store#getPresignedUrl","link":"<a href=\"Store.html#getPresignedUrl\">Store &rtrif; getPresignedUrl</a>"},{"title":"Store#itemExists","link":"<a href=\"Store.html#itemExists\">Store &rtrif; itemExists</a>"},{"title":"Store#listResources","link":"<a href=\"Store.html#listResources\">Store &rtrif; listResources</a>"},{"title":"Store#pathExists","link":"<a href=\"Store.html#pathExists\">Store &rtrif; pathExists</a>"},{"title":"Store#put","link":"<a href=\"Store.html#put\">Store &rtrif; put</a>"},{"title":"Store#stat","link":"<a href=\"Store.html#stat\">Store &rtrif; stat</a>"}];
         var options = 
           setupSearch(list, options)
       </script>
