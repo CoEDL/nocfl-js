@@ -78,11 +78,10 @@ describe("Test storage actions", () => {
         let itemPath = store.getItemPath();
         expect(itemPath).toEqual("item/t/test");
     });
-    test.only("it should be able to get the item identifier", async () => {
+    test("it should be able to get the item identifier", async () => {
         const store = new Store({ className: "item", id: "test", credentials });
         await store.createItem();
         let identifier = await store.getItemIdentifier();
-        console.log(identifier.itemPath);
         await bucket.removeObjects({ prefix: path.join("item", "t", "test") });
     });
     test("it should be able to create items with path splay = 2", () => {
@@ -123,6 +122,28 @@ describe("Test storage actions", () => {
             await store.createItem();
         } catch (error) {
             expect(error.message).toEqual(`An item with that identifier already exists`);
+        }
+
+        await bucket.removeObjects({ prefix: itemPath });
+    });
+    test("it should fail trying to overwrite an internal, special file", async () => {
+        const itemPath = path.join("item", "t", "test");
+        const store = new Store({ className: "item", id: "test", credentials });
+        await store.createItem();
+        try {
+            await store.put({ json: {}, target: "nocfl.inventory.json" });
+        } catch (error) {
+            expect(error.message).toEqual(
+                `You can't upload a file called 'nocfl.inventory.json as that's a special file used by the system`
+            );
+        }
+
+        try {
+            await store.put({ json: {}, target: "nocfl.identifier.json" });
+        } catch (error) {
+            expect(error.message).toEqual(
+                `You can't upload a file called 'nocfl.identifier.json as that's a special file used by the system`
+            );
         }
 
         await bucket.removeObjects({ prefix: itemPath });

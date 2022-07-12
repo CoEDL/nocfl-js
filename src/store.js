@@ -207,7 +207,13 @@ export class Store {
      * @param {String} target - the target name for the file; this will be set relative to the item path
      */
     async put({ localPath, json, content, target }) {
+        if (specialFiles.includes(target)) {
+            throw new Error(
+                `You can't upload a file called '${target} as that's a special file used by the system`
+            );
+        }
         let s3Target = nodePath.join(this.itemPath, target);
+
         if (!(await this.itemExists())) {
             throw new Error(`You need to 'createItem' before you can add content to it`);
         }
