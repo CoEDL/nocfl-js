@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+
+cat <<!EOF >dist/cjs/package.json 
+{
+    "type": "commonjs"
+}
+!EOF
+
+cat <<!EOF >dist/mjs/package.json 
+{
+    "type": "module"
+}
+!EOF

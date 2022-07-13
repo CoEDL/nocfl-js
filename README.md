@@ -58,6 +58,18 @@ Examples:
 
 ## Example usage
 
+### Load it
+
+```
+
+# ES modules
+import { Store } from "@coedl/nocfl-js";
+
+# CommonJS
+const { Store } = require('@coedl/nocfl-js)
+
+```
+
 ### Create an item and put a file to it
 
 ```
