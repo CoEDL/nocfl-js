@@ -105,6 +105,11 @@ export class Store {
      */
     put({ localPath, json, content, target }: string): Promise<import("@aws-sdk/types").ResponseMetadata | undefined>;
     /**
+     * Remove a file from an item in the storage
+     * @param {String} target - the target name for the file; this will be set relative to the item path
+     */
+    delete({ target }: string): Promise<import("@aws-sdk/types").ResponseMetadata | undefined>;
+    /**
      * Recursively walk and list all of the files for the item
      * @return a list of files
      */

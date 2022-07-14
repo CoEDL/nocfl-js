@@ -397,6 +397,32 @@ var Store = /** @class */ (function () {
         });
     };
     /**
+     * Remove a file from an item in the storage
+     * @param {String} target - the target name for the file; this will be set relative to the item path
+     */
+    Store.prototype.delete = function (_a) {
+        var target = _a.target;
+        return __awaiter(this, void 0, void 0, function () {
+            var s3Target;
+            return __generator(this, function (_b) {
+                switch (_b.label) {
+                    case 0:
+                        if (specialFiles.includes(target)) {
+                            throw new Error("You can't delete a file called '".concat(target, " as that's a special file used by the system"));
+                        }
+                        s3Target = nodePath.join(this.itemPath, target);
+                        return [4 /*yield*/, this.itemExists()];
+                    case 1:
+                        if (!(_b.sent())) {
+                            throw new Error("You need to 'createItem' before you can remove content from it");
+                        }
+                        return [4 /*yield*/, this.bucket.removeObjects({ keys: [s3Target] })];
+                    case 2: return [2 /*return*/, _b.sent()];
+                }
+            });
+        });
+    };
+    /**
      * Recursively walk and list all of the files for the item
      * @return a list of files
      */
