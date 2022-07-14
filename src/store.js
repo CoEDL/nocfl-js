@@ -238,6 +238,25 @@ export class Store {
     }
 
     /**
+     * Remove a file from an item in the storage
+     * @param {String} target - the target name for the file; this will be set relative to the item path
+     */
+    async delete({ target }) {
+        if (specialFiles.includes(target)) {
+            throw new Error(
+                `You can't delete a file called '${target} as that's a special file used by the system`
+            );
+        }
+        let s3Target = nodePath.join(this.itemPath, target);
+
+        if (!(await this.itemExists())) {
+            throw new Error(`You need to 'createItem' before you can remove content from it`);
+        }
+
+        return await this.bucket.removeObjects({ keys: [s3Target] });
+    }
+
+    /**
      * Recursively walk and list all of the files for the item
      * @return a list of files
      */

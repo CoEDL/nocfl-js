@@ -317,6 +317,27 @@ describe("Test storage actions", () => {
         await bucket.removeObjects({ prefix: itemPath });
         await remove(path.join("/tmp", file));
     });
+    test("it should be able to remove a file from an item", async () => {
+        const itemPath = path.join("item", "t", "test");
+        await bucket.removeObjects({ prefix: itemPath });
+
+        const file = "s3.js";
+        const store = new Store({ className: "item", id: "test", credentials });
+        await store.createItem();
+
+        await store.put({ localPath: path.join(__dirname, file), target: file });
+        let resources = await store.listResources();
+        expect(resources.length).toEqual(4);
+        expect(getFile({ resources, file }).Key).toEqual("s3.js");
+
+        await store.delete({ target: file });
+        resources = await store.listResources();
+        expect(resources.length).toEqual(3);
+        expect(getFile({ resources, file })).toBe(undefined);
+
+        await bucket.removeObjects({ prefix: itemPath });
+        await remove(path.join("/tmp", file));
+    });
     test("it should be able to get a list of files in the item", async () => {
         const itemPath = path.join("item", "t", "test");
         await bucket.removeObjects({ prefix: itemPath });
