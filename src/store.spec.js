@@ -1,7 +1,7 @@
 import { S3, Bucket } from "./s3.js";
 import { Store } from "./store.js";
 import fsExtra from "fs-extra";
-const { pathExists, remove, readJSON, readFile, readdir, stat: fileStat } = fsExtra;
+const { pathExists, remove, readJSON, readFile, stat: fileStat } = fsExtra;
 import path from "path";
 
 describe("Test storage actions", () => {
@@ -337,6 +337,80 @@ describe("Test storage actions", () => {
 
         await bucket.removeObjects({ prefix: itemPath });
         await remove(path.join("/tmp", file));
+    });
+    test("it should be able to remove multiple files from an item", async () => {
+        const itemPath = path.join("item", "t", "test");
+        await bucket.removeObjects({ prefix: itemPath });
+
+        const store = new Store({ className: "item", id: "test", credentials });
+        await store.createItem();
+
+        await store.put({ localPath: path.join(__dirname, "s3.js"), target: "s3.js" });
+        await store.put({ localPath: path.join(__dirname, "s3.spec.js"), target: "s3.spec.js" });
+        await store.put({ localPath: path.join(__dirname, "store.js"), target: "store.js" });
+        let resources = await store.listResources();
+        expect(resources.length).toEqual(6);
+
+        await store.delete({ target: ["s3.js", "store.js"] });
+        resources = await store.listResources();
+        expect(resources.length).toEqual(4);
+
+        await bucket.removeObjects({ prefix: itemPath });
+    });
+    test("it should be able to remove files by prefix", async () => {
+        const itemPath = path.join("item", "t", "test");
+        await bucket.removeObjects({ prefix: itemPath });
+
+        const store = new Store({ className: "item", id: "test", credentials });
+        await store.createItem();
+
+        await store.put({ localPath: path.join(__dirname, "s3.js"), target: "s3.js" });
+        await store.put({ localPath: path.join(__dirname, "s3.spec.js"), target: "s3.spec.js" });
+        await store.put({ localPath: path.join(__dirname, "store.js"), target: "store.js" });
+        let resources = await store.listResources();
+        expect(resources.length).toEqual(6);
+
+        await store.delete({ prefix: "s3" });
+        resources = await store.listResources();
+        expect(resources.length).toEqual(4);
+
+        await bucket.removeObjects({ prefix: itemPath });
+    });
+    test("it should fail with wrong argument type", async () => {
+        const itemPath = path.join("item", "t", "test");
+        await bucket.removeObjects({ prefix: itemPath });
+
+        const store = new Store({ className: "item", id: "test", credentials });
+        await store.createItem();
+
+        try {
+            await store.delete({ prefix: ["s3"] });
+        } catch (error) {
+            expect(error.message).toBe("prefix must be a string");
+        }
+        try {
+            await store.delete({ target: {} });
+        } catch (error) {
+            expect(error.message).toBe("target must be a string or array of strings");
+        }
+
+        await bucket.removeObjects({ prefix: itemPath });
+    });
+    test("it should fail to delete special files", async () => {
+        const itemPath = path.join("item", "t", "test");
+        await bucket.removeObjects({ prefix: itemPath });
+
+        const store = new Store({ className: "item", id: "test", credentials });
+        await store.createItem();
+
+        try {
+            await store.delete({ target: "nocfl.inventory.json" });
+        } catch (error) {
+            expect(error.message).toEqual(
+                `You can't delete a file called 'nocfl.inventory.json as that's a special file used by the system`
+            );
+        }
+        await bucket.removeObjects({ prefix: itemPath });
     });
     test("it should be able to get a list of files in the item", async () => {
         const itemPath = path.join("item", "t", "test");

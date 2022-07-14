@@ -4,7 +4,7 @@ const { createReadStream } = fsExtra;
 import crypto from "crypto";
 import * as nodePath from "path";
 import hasha from "hasha";
-import { isString, isUndefined } from "lodash";
+import { isString, isUndefined, isArray } from "lodash";
 
 const specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
 
@@ -239,21 +239,34 @@ export class Store {
 
     /**
      * Remove a file from an item in the storage
-     * @param {String} target - the target name for the file; this will be set relative to the item path
+     * @param {String|Array.<String>} [target] - the target name for the file or array of target files; this will be set relative to the item path
+     * @param {String} [prefix] - file prefix; this will be set relative to the item path
      */
-    async delete({ target }) {
+    async delete({ target = undefined, prefix = undefined }) {
         if (specialFiles.includes(target)) {
             throw new Error(
                 `You can't delete a file called '${target} as that's a special file used by the system`
             );
         }
-        let s3Target = nodePath.join(this.itemPath, target);
 
         if (!(await this.itemExists())) {
             throw new Error(`You need to 'createItem' before you can remove content from it`);
         }
 
-        return await this.bucket.removeObjects({ keys: [s3Target] });
+        if (target) {
+            if (!isString(target) && !isArray(target)) {
+                throw new Error(`target must be a string or array of strings`);
+            }
+            if (isString(target)) target = [target];
+            let keys = target.map((t) => nodePath.join(this.itemPath, t));
+            return await this.bucket.removeObjects({ keys });
+        } else if (prefix) {
+            if (!isString(prefix)) {
+                throw new Error(`prefix must be a string`);
+            }
+            prefix = nodePath.join(this.itemPath, prefix);
+            return await this.bucket.removeObjects({ prefix });
+        }
     }
 
     /**
