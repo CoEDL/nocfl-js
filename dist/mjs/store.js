@@ -216,18 +216,28 @@ export class Store {
      * Recursively walk and list all of the files for the item
      * @return a list of files
      */
-    async listResources({ continuationToken }) {
-        let resources = await this.bucket.listObjects({ prefix: this.itemPath, continuationToken });
-        if (resources.NextContinuationToken) {
-            return [
-                ...resources.Contents,
-                ...(await listResources({
-                    continuationToken: resources.NextContinuationToken,
-                })),
-            ];
-        }
-        else {
-            return resources.Contents;
+    async listResources() {
+        listItemResources = listItemResources.bind(this);
+        let resources = await listItemResources({});
+        resources = resources.map((r) => {
+            r.Key = r.Key.replace(`${this.getItemPath()}/`, "");
+            return r;
+        });
+        return resources;
+        async function listItemResources({ continuationToken }) {
+            let resources = await this.bucket.listObjects({
+                prefix: this.itemPath,
+                continuationToken,
+            });
+            if (resources.NextContinuationToken) {
+                return [
+                    ...resources.Contents,
+                    ...(await listResources(resources.NextContinuationToken)),
+                ];
+            }
+            else {
+                return resources.Contents;
+            }
         }
     }
     /**

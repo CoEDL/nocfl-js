@@ -400,22 +400,43 @@ var Store = /** @class */ (function () {
      * Recursively walk and list all of the files for the item
      * @return a list of files
      */
-    Store.prototype.listResources = function (_a) {
-        var continuationToken = _a.continuationToken;
+    Store.prototype.listResources = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var resources, _b;
-            return __generator(this, function (_c) {
-                switch (_c.label) {
-                    case 0: return [4 /*yield*/, this.bucket.listObjects({ prefix: this.itemPath, continuationToken: continuationToken })];
+            function listItemResources(_a) {
+                var continuationToken = _a.continuationToken;
+                return __awaiter(this, void 0, void 0, function () {
+                    var resources, _b;
+                    return __generator(this, function (_c) {
+                        switch (_c.label) {
+                            case 0: return [4 /*yield*/, this.bucket.listObjects({
+                                    prefix: this.itemPath,
+                                    continuationToken: continuationToken,
+                                })];
+                            case 1:
+                                resources = _c.sent();
+                                if (!resources.NextContinuationToken) return [3 /*break*/, 3];
+                                _b = [__spreadArray([], resources.Contents, true)];
+                                return [4 /*yield*/, listResources(resources.NextContinuationToken)];
+                            case 2: return [2 /*return*/, __spreadArray.apply(void 0, _b.concat([(_c.sent()), true]))];
+                            case 3: return [2 /*return*/, resources.Contents];
+                        }
+                    });
+                });
+            }
+            var resources;
+            var _this = this;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        listItemResources = listItemResources.bind(this);
+                        return [4 /*yield*/, listItemResources({})];
                     case 1:
-                        resources = _c.sent();
-                        if (!resources.NextContinuationToken) return [3 /*break*/, 3];
-                        _b = [__spreadArray([], resources.Contents, true)];
-                        return [4 /*yield*/, listResources({
-                                continuationToken: resources.NextContinuationToken,
-                            })];
-                    case 2: return [2 /*return*/, __spreadArray.apply(void 0, _b.concat([(_c.sent()), true]))];
-                    case 3: return [2 /*return*/, resources.Contents];
+                        resources = _a.sent();
+                        resources = resources.map(function (r) {
+                            r.Key = r.Key.replace("".concat(_this.getItemPath(), "/"), "");
+                            return r;
+                        });
+                        return [2 /*return*/, resources];
                 }
             });
         });

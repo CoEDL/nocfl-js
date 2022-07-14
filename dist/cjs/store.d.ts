@@ -108,9 +108,7 @@ export class Store {
      * Recursively walk and list all of the files for the item
      * @return a list of files
      */
-    listResources({ continuationToken }: {
-        continuationToken: any;
-    }): Promise<any[] | undefined>;
+    listResources(): Promise<any>;
     /**
      * Update the file inventory
      * @private
