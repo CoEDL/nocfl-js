@@ -53,7 +53,7 @@ describe("Test S3 actions", () => {
         });
         expect(data.httpStatusCode).toEqual(200);
         data = (await bucket.listObjects({})).Contents;
-        expect(data.length).toBe(2);
+        expect(data.length).toBe(1);
 
         data = await bucket.removeObjects({
             keys: ["s3.js"],
