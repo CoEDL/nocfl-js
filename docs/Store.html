@@ -83,7 +83,7 @@
   <body>
 
     <nav class="navbar" id="navbar">
-      <div class="navbar-heading" id="navbar-heading"><a href="index.html"><h2 class="navbar-heading-text">Home</h2></a></div><div class="search-box" id="search-box"><div class="search-box-input-container"><input class="search-box-input" type="text" placeholder="Search..." id="search-box-input" /><svg class="search-icon" alt="search-icon"><use xlink:href="#search-icon"></use></svg></div><div class="search-item-container" id="search-item-container"><ul class="search-item-ul" id="search-item-ul"></ul></div></div><div class="sidebar-main-content" id="sidebar-main-content"><div class="accordion collapsed" id="4054057" > <h3 class="accordion-heading">Classes<svg><use xlink:href="#down-icon"></use></svg></h3><ul class="accordion-content"><li class="accordion collapsed child" id=8685337><div class="accordion-heading child"><a href="Store.html">Store</a><svg><use xlink:href="#down-icon"></use></svg></div><ul class='methods accordion-content'><li data-type='method'><a href="Store.html#createItem">createItem</a></li><li data-type='method'><a href="Store.html#delete">delete</a></li><li data-type='method'><a href="Store.html#get">get</a></li><li data-type='method'><a href="Store.html#getItemIdentifier">getItemIdentifier</a></li><li data-type='method'><a href="Store.html#getItemInventory">getItemInventory</a></li><li data-type='method'><a href="Store.html#getItemPath">getItemPath</a></li><li data-type='method'><a href="Store.html#getPresignedUrl">getPresignedUrl</a></li><li data-type='method'><a href="Store.html#itemExists">itemExists</a></li><li data-type='method'><a href="Store.html#listResources">listResources</a></li><li data-type='method'><a href="Store.html#pathExists">pathExists</a></li><li data-type='method'><a href="Store.html#put">put</a></li><li data-type='method'><a href="Store.html#stat">stat</a></li></ul></li></ul> </div>
+      <div class="navbar-heading" id="navbar-heading"><a href="index.html"><h2 class="navbar-heading-text">Home</h2></a></div><div class="search-box" id="search-box"><div class="search-box-input-container"><input class="search-box-input" type="text" placeholder="Search..." id="search-box-input" /><svg class="search-icon" alt="search-icon"><use xlink:href="#search-icon"></use></svg></div><div class="search-item-container" id="search-item-container"><ul class="search-item-ul" id="search-item-ul"></ul></div></div><div class="sidebar-main-content" id="sidebar-main-content"><div class="accordion collapsed" id="2044741" > <h3 class="accordion-heading">Classes<svg><use xlink:href="#down-icon"></use></svg></h3><ul class="accordion-content"><li class="accordion collapsed child" id=683890><div class="accordion-heading child"><a href="Store.html">Store</a><svg><use xlink:href="#down-icon"></use></svg></div><ul class='methods accordion-content'><li data-type='method'><a href="Store.html#createItem">createItem</a></li><li data-type='method'><a href="Store.html#delete">delete</a></li><li data-type='method'><a href="Store.html#get">get</a></li><li data-type='method'><a href="Store.html#getItemIdentifier">getItemIdentifier</a></li><li data-type='method'><a href="Store.html#getItemInventory">getItemInventory</a></li><li data-type='method'><a href="Store.html#getItemPath">getItemPath</a></li><li data-type='method'><a href="Store.html#getPresignedUrl">getPresignedUrl</a></li><li data-type='method'><a href="Store.html#itemExists">itemExists</a></li><li data-type='method'><a href="Store.html#listResources">listResources</a></li><li data-type='method'><a href="Store.html#pathExists">pathExists</a></li><li data-type='method'><a href="Store.html#put">put</a></li><li data-type='method'><a href="Store.html#stat">stat</a></li></ul></li></ul> </div>
       
 
     </nav>
@@ -757,7 +757,7 @@
 
     <h4 class="name" id="delete">
         <a href="#delete">#</a>
-        <span class="type-signature">(async) </span>delete<span class="signature">(target)</span><span class="type-signature"></span>
+        <span class="type-signature">(async) </span>delete<span class="signature">(target<span class="signature-attributes">opt</span>, prefix<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span>
     </h4>
 
     
@@ -790,6 +790,8 @@
         <th>Type</th>
 
         
+        <th>Attributes</th>
+        
 
         
 
@@ -809,16 +811,62 @@
             
                 
 <span class="param-type">String</span>
+|
+
+<span class="param-type">Array.&lt;String></span>
 
 
             
             </td>
 
             
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
 
             
 
-            <td class="description last"><p>the target name for the file; this will be set relative to the item path</p></td>
+            <td class="description last"><p>the target name for the file or array of target files; this will be set relative to the item path</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>prefix</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">String</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>file prefix; this will be set relative to the item path</p></td>
         </tr>
 
     
@@ -863,7 +911,7 @@
         <div class="details-item-container">
             <dt class="tag-source">Source:</dt>
             <dd class="tag-source"><ul class="dummy"><li>
-                <a href="store.js.html">store.js</a>, <a href="store.js.html#line244">line 244</a>
+                <a href="store.js.html">store.js</a>, <a href="store.js.html#line245">line 245</a>
             </li></ul></dd>
         </div>
     
@@ -1709,7 +1757,7 @@
         <div class="details-item-container">
             <dt class="tag-source">Source:</dt>
             <dd class="tag-source"><ul class="dummy"><li>
-                <a href="store.js.html">store.js</a>, <a href="store.js.html#line263">line 263</a>
+                <a href="store.js.html">store.js</a>, <a href="store.js.html#line276">line 276</a>
             </li></ul></dd>
         </div>
     

@@ -83,7 +83,7 @@
   <body>
 
     <nav class="navbar" id="navbar">
-      <div class="navbar-heading" id="navbar-heading"><a href="index.html"><h2 class="navbar-heading-text">Home</h2></a></div><div class="search-box" id="search-box"><div class="search-box-input-container"><input class="search-box-input" type="text" placeholder="Search..." id="search-box-input" /><svg class="search-icon" alt="search-icon"><use xlink:href="#search-icon"></use></svg></div><div class="search-item-container" id="search-item-container"><ul class="search-item-ul" id="search-item-ul"></ul></div></div><div class="sidebar-main-content" id="sidebar-main-content"><div class="accordion collapsed" id="4054057" > <h3 class="accordion-heading">Classes<svg><use xlink:href="#down-icon"></use></svg></h3><ul class="accordion-content"><li class="accordion collapsed child" id=8685337><div class="accordion-heading child"><a href="Store.html">Store</a><svg><use xlink:href="#down-icon"></use></svg></div><ul class='methods accordion-content'><li data-type='method'><a href="Store.html#createItem">createItem</a></li><li data-type='method'><a href="Store.html#delete">delete</a></li><li data-type='method'><a href="Store.html#get">get</a></li><li data-type='method'><a href="Store.html#getItemIdentifier">getItemIdentifier</a></li><li data-type='method'><a href="Store.html#getItemInventory">getItemInventory</a></li><li data-type='method'><a href="Store.html#getItemPath">getItemPath</a></li><li data-type='method'><a href="Store.html#getPresignedUrl">getPresignedUrl</a></li><li data-type='method'><a href="Store.html#itemExists">itemExists</a></li><li data-type='method'><a href="Store.html#listResources">listResources</a></li><li data-type='method'><a href="Store.html#pathExists">pathExists</a></li><li data-type='method'><a href="Store.html#put">put</a></li><li data-type='method'><a href="Store.html#stat">stat</a></li></ul></li></ul> </div>
+      <div class="navbar-heading" id="navbar-heading"><a href="index.html"><h2 class="navbar-heading-text">Home</h2></a></div><div class="search-box" id="search-box"><div class="search-box-input-container"><input class="search-box-input" type="text" placeholder="Search..." id="search-box-input" /><svg class="search-icon" alt="search-icon"><use xlink:href="#search-icon"></use></svg></div><div class="search-item-container" id="search-item-container"><ul class="search-item-ul" id="search-item-ul"></ul></div></div><div class="sidebar-main-content" id="sidebar-main-content"><div class="accordion collapsed" id="2044741" > <h3 class="accordion-heading">Classes<svg><use xlink:href="#down-icon"></use></svg></h3><ul class="accordion-content"><li class="accordion collapsed child" id=683890><div class="accordion-heading child"><a href="Store.html">Store</a><svg><use xlink:href="#down-icon"></use></svg></div><ul class='methods accordion-content'><li data-type='method'><a href="Store.html#createItem">createItem</a></li><li data-type='method'><a href="Store.html#delete">delete</a></li><li data-type='method'><a href="Store.html#get">get</a></li><li data-type='method'><a href="Store.html#getItemIdentifier">getItemIdentifier</a></li><li data-type='method'><a href="Store.html#getItemInventory">getItemInventory</a></li><li data-type='method'><a href="Store.html#getItemPath">getItemPath</a></li><li data-type='method'><a href="Store.html#getPresignedUrl">getPresignedUrl</a></li><li data-type='method'><a href="Store.html#itemExists">itemExists</a></li><li data-type='method'><a href="Store.html#listResources">listResources</a></li><li data-type='method'><a href="Store.html#pathExists">pathExists</a></li><li data-type='method'><a href="Store.html#put">put</a></li><li data-type='method'><a href="Store.html#stat">stat</a></li></ul></li></ul> </div>
       
 
     </nav>
@@ -115,7 +115,7 @@ const { createReadStream } = fsExtra;
 import crypto from "crypto";
 import * as nodePath from "path";
 import hasha from "hasha";
-import { isString, isUndefined } from "lodash";
+import { isString, isUndefined, isArray } from "lodash";
 
 const specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
 
@@ -350,21 +350,34 @@ export class Store {
 
     /**
      * Remove a file from an item in the storage
-     * @param {String} target - the target name for the file; this will be set relative to the item path
+     * @param {String|Array.&lt;String>} [target] - the target name for the file or array of target files; this will be set relative to the item path
+     * @param {String} [prefix] - file prefix; this will be set relative to the item path
      */
-    async delete({ target }) {
+    async delete({ target = undefined, prefix = undefined }) {
         if (specialFiles.includes(target)) {
             throw new Error(
                 `You can't delete a file called '${target} as that's a special file used by the system`
             );
         }
-        let s3Target = nodePath.join(this.itemPath, target);
 
         if (!(await this.itemExists())) {
             throw new Error(`You need to 'createItem' before you can remove content from it`);
         }
 
-        return await this.bucket.removeObjects({ keys: [s3Target] });
+        if (target) {
+            if (!isString(target) &amp;&amp; !isArray(target)) {
+                throw new Error(`target must be a string or array of strings`);
+            }
+            if (isString(target)) target = [target];
+            let keys = target.map((t) => nodePath.join(this.itemPath, t));
+            return await this.bucket.removeObjects({ keys });
+        } else if (prefix) {
+            if (!isString(prefix)) {
+                throw new Error(`prefix must be a string`);
+            }
+            prefix = nodePath.join(this.itemPath, prefix);
+            return await this.bucket.removeObjects({ prefix });
+        }
     }
 
     /**

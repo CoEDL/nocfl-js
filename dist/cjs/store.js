@@ -398,26 +398,43 @@ var Store = /** @class */ (function () {
     };
     /**
      * Remove a file from an item in the storage
-     * @param {String} target - the target name for the file; this will be set relative to the item path
+     * @param {String|Array.<String>} [target] - the target name for the file or array of target files; this will be set relative to the item path
+     * @param {String} [prefix] - file prefix; this will be set relative to the item path
      */
     Store.prototype.delete = function (_a) {
-        var target = _a.target;
+        var _b = _a.target, target = _b === void 0 ? undefined : _b, _c = _a.prefix, prefix = _c === void 0 ? undefined : _c;
         return __awaiter(this, void 0, void 0, function () {
-            var s3Target;
-            return __generator(this, function (_b) {
-                switch (_b.label) {
+            var keys;
+            var _this = this;
+            return __generator(this, function (_d) {
+                switch (_d.label) {
                     case 0:
                         if (specialFiles.includes(target)) {
                             throw new Error("You can't delete a file called '".concat(target, " as that's a special file used by the system"));
                         }
-                        s3Target = nodePath.join(this.itemPath, target);
                         return [4 /*yield*/, this.itemExists()];
                     case 1:
-                        if (!(_b.sent())) {
+                        if (!(_d.sent())) {
                             throw new Error("You need to 'createItem' before you can remove content from it");
                         }
-                        return [4 /*yield*/, this.bucket.removeObjects({ keys: [s3Target] })];
-                    case 2: return [2 /*return*/, _b.sent()];
+                        if (!target) return [3 /*break*/, 3];
+                        if (!(0, lodash_1.isString)(target) && !(0, lodash_1.isArray)(target)) {
+                            throw new Error("target must be a string or array of strings");
+                        }
+                        if ((0, lodash_1.isString)(target))
+                            target = [target];
+                        keys = target.map(function (t) { return nodePath.join(_this.itemPath, t); });
+                        return [4 /*yield*/, this.bucket.removeObjects({ keys: keys })];
+                    case 2: return [2 /*return*/, _d.sent()];
+                    case 3:
+                        if (!prefix) return [3 /*break*/, 5];
+                        if (!(0, lodash_1.isString)(prefix)) {
+                            throw new Error("prefix must be a string");
+                        }
+                        prefix = nodePath.join(this.itemPath, prefix);
+                        return [4 /*yield*/, this.bucket.removeObjects({ prefix: prefix })];
+                    case 4: return [2 /*return*/, _d.sent()];
+                    case 5: return [2 /*return*/];
                 }
             });
         });
