@@ -111,16 +111,16 @@ describe("Test storage actions", () => {
 
         const store = new Store({ className: "item", id: "test", credentials });
         await store.createItem();
-        let resources = await store.listResources({});
+        let resources = await store.listResources();
         expect(resources.length).toEqual(3);
         expect(getFile({ resources, file: "ro-crate-metadata.json" }).Key).toEqual(
-            "item/t/test/ro-crate-metadata.json"
+            "ro-crate-metadata.json"
         );
         expect(getFile({ resources, file: "nocfl.inventory.json" }).Key).toEqual(
-            "item/t/test/nocfl.inventory.json"
+            "nocfl.inventory.json"
         );
         expect(getFile({ resources, file: "nocfl.inventory.json" }).Key).toEqual(
-            "item/t/test/nocfl.inventory.json"
+            "nocfl.inventory.json"
         );
 
         await bucket.removeObjects({ prefix: itemPath });
@@ -175,7 +175,7 @@ describe("Test storage actions", () => {
 
         await store.createItem();
         await store.put({ target: file, localPath: path.join(__dirname, file) });
-        let resources = await store.listResources({});
+        let resources = await store.listResources();
         expect(resources.length).toEqual(4);
 
         await bucket.removeObjects({ prefix: itemPath });
@@ -189,8 +189,8 @@ describe("Test storage actions", () => {
         await store.createItem();
         await store.put({ target: file, localPath: path.join(__dirname, file) });
 
-        let resources = await store.listResources({});
-        expect(getFile({ resources, file }).Key).toEqual(path.join(itemPath, file));
+        let resources = await store.listResources();
+        expect(getFile({ resources, file }).Key).toEqual(file);
 
         await bucket.removeObjects({ prefix: itemPath });
     });
@@ -204,8 +204,8 @@ describe("Test storage actions", () => {
         await store.createItem();
         await store.put({ target: file, localPath: path.join(__dirname, file) });
 
-        let resources = await store.listResources({});
-        expect(getFile({ resources, file }).Key).toEqual(path.join(itemPath, file));
+        let resources = await store.listResources();
+        expect(getFile({ resources, file }).Key).toEqual(file);
 
         await bucket.removeObjects({ prefix: itemPath });
     });
@@ -230,9 +230,9 @@ describe("Test storage actions", () => {
         await store.createItem();
 
         await store.put({ localPath: path.join(__dirname, file), target: file });
-        let resources = await store.listResources({});
+        let resources = await store.listResources();
         expect(resources.length).toEqual(4);
-        expect(getFile({ resources, file }).Key).toEqual(path.join(itemPath, "s3.js"));
+        expect(getFile({ resources, file }).Key).toEqual("s3.js");
 
         await store.get({ target: file, localPath: path.join("/tmp", file) });
         expect(await pathExists(path.join("/tmp", file))).toBe(true);
@@ -250,9 +250,9 @@ describe("Test storage actions", () => {
         await store.createItem();
 
         await store.put({ localPath: path.join(__dirname, file), target: `some/path/to/${file}` });
-        let resources = await store.listResources({});
+        let resources = await store.listResources();
         expect(resources.length).toEqual(4);
-        expect(getFile({ resources, file }).Key).toEqual(path.join(itemPath, "some/path/to/s3.js"));
+        expect(getFile({ resources, file }).Key).toEqual("some/path/to/s3.js");
 
         await bucket.removeObjects({ prefix: itemPath });
         await remove(path.join("/tmp", file));
@@ -326,8 +326,9 @@ describe("Test storage actions", () => {
         await store.createItem();
 
         await store.put({ localPath: path.join(__dirname, file), target: file });
-        let resources = await store.listResources({});
+        let resources = await store.listResources();
         expect(resources.length).toEqual(4);
+        resources.forEach((r) => expect(r.Key).not.toMatch(itemPath));
 
         await bucket.removeObjects({ prefix: itemPath });
     });
