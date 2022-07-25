@@ -260,7 +260,7 @@ export class Bucket {
             if (objects) keys = objects.map((entry) => entry.Key);
         }
         let objs = keys.map((k) => ({ Key: k }));
-        if (objs.length) {
+        if (objs?.length) {
             const command = new DeleteObjectsCommand({
                 Bucket: this.bucket,
                 Delete: { Objects: objs },
