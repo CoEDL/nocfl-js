@@ -335,17 +335,36 @@ var Store = /** @class */ (function () {
         });
     };
     /**
+     * Get a JSON file from the item on the storage
+     * @param {String} localPath - the local path where you want to download the file to
+     * @param {String} target - the file on the storage, relative to the item path, that you want to download
+     */
+    Store.prototype.getJSON = function (_a) {
+        var localPath = _a.localPath, target = _a.target;
+        return __awaiter(this, void 0, void 0, function () {
+            var _b, _c;
+            return __generator(this, function (_d) {
+                switch (_d.label) {
+                    case 0:
+                        _c = (_b = JSON).parse;
+                        return [4 /*yield*/, this.get({ localPath: localPath, target: target })];
+                    case 1: return [2 /*return*/, _c.apply(_b, [_d.sent()])];
+                }
+            });
+        });
+    };
+    /**
      * Get a presigned link to the file
      * @param {String} target - the file on the storage, relative to the item path, that you want the url for
      */
     Store.prototype.getPresignedUrl = function (_a) {
-        var target = _a.target;
+        var target = _a.target, download = _a.download;
         return __awaiter(this, void 0, void 0, function () {
             return __generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
                         target = nodePath.join(this.itemPath, target);
-                        return [4 /*yield*/, this.bucket.getPresignedUrl({ target: target })];
+                        return [4 /*yield*/, this.bucket.getPresignedUrl({ target: target, download: download })];
                     case 1: return [2 /*return*/, _b.sent()];
                 }
             });
@@ -354,6 +373,8 @@ var Store = /** @class */ (function () {
     /**
      * Put a file into the item on the storage
      * @param {String} localPath - the path to the file locally that you want to upload to the item folder
+     * @param {String} json - a JSON object to store in the file directly
+     * @param {String} content - some content to store in the file directly
      * @param {String} target - the target name for the file; this will be set relative to the item path
      */
     Store.prototype.put = function (_a) {

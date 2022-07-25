@@ -386,7 +386,7 @@ var Bucket = /** @class */ (function () {
                         _d.label = 2;
                     case 2:
                         objs = keys.map(function (k) { return ({ Key: k }); });
-                        if (!objs.length) return [3 /*break*/, 4];
+                        if (!(objs === null || objs === void 0 ? void 0 : objs.length)) return [3 /*break*/, 4];
                         command = new client_s3_1.DeleteObjectsCommand({
                             Bucket: this.bucket,
                             Delete: { Objects: objs },

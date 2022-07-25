@@ -94,13 +94,21 @@ export class Store {
      */
     get({ localPath, target }: string): Promise<string | import("@aws-sdk/types").ResponseMetadata>;
     /**
+     * Get a JSON file from the item on the storage
+     * @param {String} localPath - the local path where you want to download the file to
+     * @param {String} target - the file on the storage, relative to the item path, that you want to download
+     */
+    getJSON({ localPath, target }: string): Promise<any>;
+    /**
      * Get a presigned link to the file
      * @param {String} target - the file on the storage, relative to the item path, that you want the url for
      */
-    getPresignedUrl({ target }: string): Promise<string>;
+    getPresignedUrl({ target, download }: string): Promise<string>;
     /**
      * Put a file into the item on the storage
      * @param {String} localPath - the path to the file locally that you want to upload to the item folder
+     * @param {String} json - a JSON object to store in the file directly
+     * @param {String} content - some content to store in the file directly
      * @param {String} target - the target name for the file; this will be set relative to the item path
      */
     put({ localPath, json, content, target }: string): Promise<import("@aws-sdk/types").ResponseMetadata | undefined>;
