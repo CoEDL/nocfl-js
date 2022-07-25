@@ -201,17 +201,28 @@ export class Store {
     }
 
     /**
+     * Get a JSON file from the item on the storage
+     * @param {String} localPath - the local path where you want to download the file to
+     * @param {String} target - the file on the storage, relative to the item path, that you want to download
+     */
+    async getJSON({ localPath, target }) {
+        return JSON.parse(await this.get({ localPath, target }));
+    }
+
+    /**
      * Get a presigned link to the file
      * @param {String} target - the file on the storage, relative to the item path, that you want the url for
      */
-    async getPresignedUrl({ target }) {
+    async getPresignedUrl({ target, download }) {
         target = nodePath.join(this.itemPath, target);
-        return await this.bucket.getPresignedUrl({ target });
+        return await this.bucket.getPresignedUrl({ target, download });
     }
 
     /**
      * Put a file into the item on the storage
      * @param {String} localPath - the path to the file locally that you want to upload to the item folder
+     * @param {String} json - a JSON object to store in the file directly
+     * @param {String} content - some content to store in the file directly
      * @param {String} target - the target name for the file; this will be set relative to the item path
      */
     async put({ localPath, json, content, target }) {
