@@ -170,23 +170,13 @@ var Store = /** @class */ (function () {
      */
     Store.prototype.itemExists = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var _a;
-            return __generator(this, function (_b) {
-                switch (_b.label) {
+            return __generator(this, function (_a) {
+                switch (_a.label) {
                     case 0: return [4 /*yield*/, this.bucket.pathExists({
-                            path: nodePath.join(this.itemPath, "ro-crate-metadata.json"),
+                            path: nodePath.join(this.itemPath, "nocfl.inventory.json"),
                         })];
                     case 1:
-                        _a = (_b.sent());
-                        if (!_a) return [3 /*break*/, 3];
-                        return [4 /*yield*/, this.bucket.pathExists({
-                                path: nodePath.join(this.itemPath, "ro-crate-metadata.json"),
-                            })];
-                    case 2:
-                        _a = (_b.sent());
-                        _b.label = 3;
-                    case 3:
-                        if (_a) {
+                        if (_a.sent()) {
                             return [2 /*return*/, true];
                         }
                         return [2 /*return*/, false];
