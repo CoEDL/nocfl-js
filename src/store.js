@@ -103,12 +103,9 @@ export class Store {
      */
     async itemExists() {
         if (
-            (await this.bucket.pathExists({
-                path: nodePath.join(this.itemPath, "ro-crate-metadata.json"),
-            })) &&
-            (await this.bucket.pathExists({
-                path: nodePath.join(this.itemPath, "ro-crate-metadata.json"),
-            }))
+            await this.bucket.pathExists({
+                path: nodePath.join(this.itemPath, "nocfl.inventory.json"),
+            })
         ) {
             return true;
         }
