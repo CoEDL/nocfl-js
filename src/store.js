@@ -216,13 +216,22 @@ export class Store {
     }
 
     /**
+     * A transfer Object
+     * @typedef {Object} Transfer
+     * @property {String} localPath - the path to the file locally that you want to upload to the item folder
+     * @property {String} json - a JSON object to store in the file directly
+     * @property {String} content - some content to store in the file directly
+     * @property {String} target - the target name for the file; this will be set relative to the item path
+     */
+
+    /**
      * Put a file into the item on the storage
      * @param {String} localPath - the path to the file locally that you want to upload to the item folder
      * @param {String} json - a JSON object to store in the file directly
      * @param {String} content - some content to store in the file directly
      * @param {String} target - the target name for the file; this will be set relative to the item path
-     * @param {{localPath, json, content, target}[]} batch - an array of objects defining content to put
-     * into the store where the params are as for the single case. Uploads will be run 5 at a time.
+     * @param {Transfer[]} batch - an array of objects defining content to put into the store where the params
+     *  are as for the single case. Uploads will be run 5 at a time.
      */
     async put({ localPath, json, content, target, batch = [] }) {
         if (!(await this.itemExists())) {

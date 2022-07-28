@@ -105,13 +105,23 @@ export class Store {
      */
     getPresignedUrl({ target, download }: string): Promise<string>;
     /**
+     * A transfer Object
+     * @typedef {Object} Transfer
+     * @property {String} localPath - the path to the file locally that you want to upload to the item folder
+     * @property {String} json - a JSON object to store in the file directly
+     * @property {String} content - some content to store in the file directly
+     * @property {String} target - the target name for the file; this will be set relative to the item path
+     */
+    /**
      * Put a file into the item on the storage
      * @param {String} localPath - the path to the file locally that you want to upload to the item folder
      * @param {String} json - a JSON object to store in the file directly
      * @param {String} content - some content to store in the file directly
      * @param {String} target - the target name for the file; this will be set relative to the item path
+     * @param {Transfer[]} batch - an array of objects defining content to put into the store where the params
+     *  are as for the single case. Uploads will be run 5 at a time.
      */
-    put({ localPath, json, content, target }: string): Promise<import("@aws-sdk/types").ResponseMetadata | undefined>;
+    put({ localPath, json, content, target, batch }: string): Promise<void>;
     /**
      * Remove a file from an item in the storage
      * @param {String|Array.<String>} [target] - the target name for the file or array of target files; this will be set relative to the item path

@@ -4,7 +4,7 @@ const { createReadStream } = fsExtra;
 import crypto from "crypto";
 import * as nodePath from "path";
 import hasha from "hasha";
-import { isString, isUndefined, isArray } from "lodash";
+import { isString, isUndefined, isArray, chunk } from "lodash";
 const specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
 /** Class representing an S3 store. */
 export class Store {
@@ -193,31 +193,54 @@ export class Store {
         return await this.bucket.getPresignedUrl({ target, download });
     }
     /**
+     * A transfer Object
+     * @typedef {Object} Transfer
+     * @property {String} localPath - the path to the file locally that you want to upload to the item folder
+     * @property {String} json - a JSON object to store in the file directly
+     * @property {String} content - some content to store in the file directly
+     * @property {String} target - the target name for the file; this will be set relative to the item path
+     */
+    /**
      * Put a file into the item on the storage
      * @param {String} localPath - the path to the file locally that you want to upload to the item folder
      * @param {String} json - a JSON object to store in the file directly
      * @param {String} content - some content to store in the file directly
      * @param {String} target - the target name for the file; this will be set relative to the item path
+     * @param {Transfer[]} batch - an array of objects defining content to put into the store where the params
+     *  are as for the single case. Uploads will be run 5 at a time.
      */
-    async put({ localPath, json, content, target }) {
-        if (specialFiles.includes(target)) {
-            throw new Error(`You can't upload a file called '${target} as that's a special file used by the system`);
-        }
-        let s3Target = nodePath.join(this.itemPath, target);
+    async put({ localPath, json, content, target, batch = [] }) {
         if (!(await this.itemExists())) {
             throw new Error(`You need to 'createItem' before you can add content to it`);
         }
-        if (localPath) {
-            let hash = await sha512(localPath);
-            await this.__updateInventory({ target, hash });
-        }
-        else if (json) {
-            await this.__updateInventory({ target, hash: hasha(JSON.stringify(json)) });
+        transfer = transfer.bind(this);
+        if (batch.length) {
+            let chunks = chunk(batch, 5);
+            for (let chunk of chunks) {
+                let transfers = chunk.map((t) => transfer(t));
+                await Promise.all(transfers);
+            }
         }
         else {
-            await this.__updateInventory({ target, hash: hasha(content) });
+            await transfer({ localPath, json, content, target });
         }
-        return await this.bucket.upload({ localPath, json, content, target: s3Target });
+        async function transfer({ localPath, json, content, target }) {
+            if (specialFiles.includes(target)) {
+                throw new Error(`You can't upload a file called '${target} as that's a special file used by the system`);
+            }
+            if (localPath) {
+                let hash = await sha512(localPath);
+                await this.__updateInventory({ target, hash });
+            }
+            else if (json) {
+                await this.__updateInventory({ target, hash: hasha(JSON.stringify(json)) });
+            }
+            else {
+                await this.__updateInventory({ target, hash: hasha(content) });
+            }
+            let s3Target = nodePath.join(this.itemPath, target);
+            return await this.bucket.upload({ localPath, json, content, target: s3Target });
+        }
     }
     /**
      * Remove a file from an item in the storage

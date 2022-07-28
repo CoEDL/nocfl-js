@@ -361,48 +361,91 @@ var Store = /** @class */ (function () {
         });
     };
     /**
+     * A transfer Object
+     * @typedef {Object} Transfer
+     * @property {String} localPath - the path to the file locally that you want to upload to the item folder
+     * @property {String} json - a JSON object to store in the file directly
+     * @property {String} content - some content to store in the file directly
+     * @property {String} target - the target name for the file; this will be set relative to the item path
+     */
+    /**
      * Put a file into the item on the storage
      * @param {String} localPath - the path to the file locally that you want to upload to the item folder
      * @param {String} json - a JSON object to store in the file directly
      * @param {String} content - some content to store in the file directly
      * @param {String} target - the target name for the file; this will be set relative to the item path
+     * @param {Transfer[]} batch - an array of objects defining content to put into the store where the params
+     *  are as for the single case. Uploads will be run 5 at a time.
      */
     Store.prototype.put = function (_a) {
-        var localPath = _a.localPath, json = _a.json, content = _a.content, target = _a.target;
+        var localPath = _a.localPath, json = _a.json, content = _a.content, target = _a.target, _b = _a.batch, batch = _b === void 0 ? [] : _b;
         return __awaiter(this, void 0, void 0, function () {
-            var s3Target, hash;
-            return __generator(this, function (_b) {
-                switch (_b.label) {
-                    case 0:
-                        if (specialFiles.includes(target)) {
-                            throw new Error("You can't upload a file called '".concat(target, " as that's a special file used by the system"));
+            function transfer(_a) {
+                var localPath = _a.localPath, json = _a.json, content = _a.content, target = _a.target;
+                return __awaiter(this, void 0, void 0, function () {
+                    var hash, s3Target;
+                    return __generator(this, function (_b) {
+                        switch (_b.label) {
+                            case 0:
+                                if (specialFiles.includes(target)) {
+                                    throw new Error("You can't upload a file called '".concat(target, " as that's a special file used by the system"));
+                                }
+                                if (!localPath) return [3 /*break*/, 3];
+                                return [4 /*yield*/, sha512(localPath)];
+                            case 1:
+                                hash = _b.sent();
+                                return [4 /*yield*/, this.__updateInventory({ target: target, hash: hash })];
+                            case 2:
+                                _b.sent();
+                                return [3 /*break*/, 7];
+                            case 3:
+                                if (!json) return [3 /*break*/, 5];
+                                return [4 /*yield*/, this.__updateInventory({ target: target, hash: (0, hasha_1.default)(JSON.stringify(json)) })];
+                            case 4:
+                                _b.sent();
+                                return [3 /*break*/, 7];
+                            case 5: return [4 /*yield*/, this.__updateInventory({ target: target, hash: (0, hasha_1.default)(content) })];
+                            case 6:
+                                _b.sent();
+                                _b.label = 7;
+                            case 7:
+                                s3Target = nodePath.join(this.itemPath, target);
+                                return [4 /*yield*/, this.bucket.upload({ localPath: localPath, json: json, content: content, target: s3Target })];
+                            case 8: return [2 /*return*/, _b.sent()];
                         }
-                        s3Target = nodePath.join(this.itemPath, target);
-                        return [4 /*yield*/, this.itemExists()];
+                    });
+                });
+            }
+            var chunks, _i, chunks_1, chunk_1, transfers;
+            return __generator(this, function (_c) {
+                switch (_c.label) {
+                    case 0: return [4 /*yield*/, this.itemExists()];
                     case 1:
-                        if (!(_b.sent())) {
+                        if (!(_c.sent())) {
                             throw new Error("You need to 'createItem' before you can add content to it");
                         }
-                        if (!localPath) return [3 /*break*/, 4];
-                        return [4 /*yield*/, sha512(localPath)];
+                        transfer = transfer.bind(this);
+                        if (!batch.length) return [3 /*break*/, 6];
+                        chunks = (0, lodash_1.chunk)(batch, 5);
+                        _i = 0, chunks_1 = chunks;
+                        _c.label = 2;
                     case 2:
-                        hash = _b.sent();
-                        return [4 /*yield*/, this.__updateInventory({ target: target, hash: hash })];
+                        if (!(_i < chunks_1.length)) return [3 /*break*/, 5];
+                        chunk_1 = chunks_1[_i];
+                        transfers = chunk_1.map(function (t) { return transfer(t); });
+                        return [4 /*yield*/, Promise.all(transfers)];
                     case 3:
-                        _b.sent();
-                        return [3 /*break*/, 8];
+                        _c.sent();
+                        _c.label = 4;
                     case 4:
-                        if (!json) return [3 /*break*/, 6];
-                        return [4 /*yield*/, this.__updateInventory({ target: target, hash: (0, hasha_1.default)(JSON.stringify(json)) })];
-                    case 5:
-                        _b.sent();
-                        return [3 /*break*/, 8];
-                    case 6: return [4 /*yield*/, this.__updateInventory({ target: target, hash: (0, hasha_1.default)(content) })];
+                        _i++;
+                        return [3 /*break*/, 2];
+                    case 5: return [3 /*break*/, 8];
+                    case 6: return [4 /*yield*/, transfer({ localPath: localPath, json: json, content: content, target: target })];
                     case 7:
-                        _b.sent();
-                        _b.label = 8;
-                    case 8: return [4 /*yield*/, this.bucket.upload({ localPath: localPath, json: json, content: content, target: s3Target })];
-                    case 9: return [2 /*return*/, _b.sent()];
+                        _c.sent();
+                        _c.label = 8;
+                    case 8: return [2 /*return*/];
                 }
             });
         });
