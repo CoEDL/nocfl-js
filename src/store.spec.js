@@ -241,6 +241,66 @@ describe("Test storage actions", () => {
         await bucket.removeObjects({ prefix: itemPath });
         await remove(path.join("/tmp", file));
     });
+    test("it should be able to upload / download two files simultaneously", async () => {
+        const itemPath = path.join("item", "t", "test");
+        await bucket.removeObjects({ prefix: itemPath });
+
+        const file = "s3.js";
+        const store = new Store({ className: "item", id: "test", credentials });
+        await store.createItem();
+
+        let batch = [
+            { localPath: path.join(__dirname, "s3.js"), target: "s3.js" },
+            { localPath: path.join(__dirname, "s3.spec.js"), target: "s3.spec.js" },
+        ];
+
+        await store.put({ batch });
+        let resources = await store.listResources();
+        expect(resources.map((r) => r.Key).sort()).toEqual([
+            "nocfl.identifier.json",
+            "nocfl.inventory.json",
+            "ro-crate-metadata.json",
+            "s3.js",
+            "s3.spec.js",
+        ]);
+        expect(resources.length).toEqual(5);
+
+        await bucket.removeObjects({ prefix: itemPath });
+        await remove(path.join("/tmp", file));
+    });
+    test("it should be able to upload / download 12 files in chunks of 5", async () => {
+        const itemPath = path.join("item", "t", "test");
+        await bucket.removeObjects({ prefix: itemPath });
+
+        const store = new Store({ className: "item", id: "test", credentials });
+        await store.createItem();
+
+        let files = ["s3.spec.js", "store.js", "store.spec.js", "index.js"];
+        let batch = files.map((f) => ({ localPath: path.join(__dirname, f), target: f }));
+
+        files = [
+            "index.d.ts",
+            "index.js",
+            "package.json",
+            "s3.d.ts",
+            "s3.js",
+            "store.d.ts",
+            "store.js",
+        ];
+        batch = [
+            ...batch,
+            ...files.map((f) => ({
+                localPath: path.join(__dirname, "..", "dist", "cjs", f),
+                target: f,
+            })),
+        ];
+
+        await store.put({ batch });
+        let resources = await store.listResources();
+        expect(resources.length).toEqual(12);
+
+        await bucket.removeObjects({ prefix: store.getItemPath() });
+    });
     test("it should be able to upload / download a file to a subpath (not just the root)", async () => {
         const itemPath = path.join("item", "t", "test");
         await bucket.removeObjects({ prefix: itemPath });
