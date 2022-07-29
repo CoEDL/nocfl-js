@@ -235,7 +235,7 @@ export class Store {
      */
     async put({ localPath, json, content, target, batch = [] }) {
         if (!(await this.itemExists())) {
-            throw new Error(`You need to 'createItem' before you can add content to it`);
+            throw new Error(`The item doesn't exist`);
         }
 
         transfer = transfer.bind(this);
@@ -281,7 +281,7 @@ export class Store {
         }
 
         if (!(await this.itemExists())) {
-            throw new Error(`You need to 'createItem' before you can remove content from it`);
+            throw new Error(`The item doesn't exist`);
         }
 
         if (target) {
@@ -298,6 +298,16 @@ export class Store {
             prefix = nodePath.join(this.itemPath, prefix);
             return await this.bucket.removeObjects({ prefix });
         }
+    }
+
+    /**
+     * Delete the item
+     */
+    async deleteItem() {
+        if (!(await this.itemExists())) {
+            throw new Error(`The item doesn't exist`);
+        }
+        return await this.bucket.removeObjects({ prefix: this.itemPath });
     }
 
     /**

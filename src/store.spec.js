@@ -168,9 +168,7 @@ describe("Test storage actions", () => {
         try {
             await store.put({ target: file, localPath: path.join(__dirname, file) });
         } catch (error) {
-            expect(error.message).toEqual(
-                `You need to 'createItem' before you can add content to it`
-            );
+            expect(error.message).toEqual(`The item doesn't exist`);
         }
 
         await store.createItem();
@@ -433,6 +431,28 @@ describe("Test storage actions", () => {
         await store.delete({ prefix: "s3" });
         resources = await store.listResources();
         expect(resources.length).toEqual(4);
+
+        await bucket.removeObjects({ prefix: itemPath });
+    });
+    test("it should be able to remove the whole item", async () => {
+        const itemPath = path.join("item", "t", "test");
+        await bucket.removeObjects({ prefix: itemPath });
+
+        const store = new Store({ className: "item", id: "test", credentials });
+        await store.createItem();
+
+        await store.put({ localPath: path.join(__dirname, "s3.js"), target: "s3.js" });
+        await store.put({
+            localPath: path.join(__dirname, "s3.spec.js"),
+            target: "s3.spec.js",
+        });
+        await store.put({ localPath: path.join(__dirname, "store.js"), target: "store.js" });
+        let resources = await store.listResources();
+        expect(resources.length).toEqual(6);
+
+        await store.deleteItem({ prefix: store.getItemPath() });
+        let exists = await store.itemExists();
+        expect(exists).toBe(false);
 
         await bucket.removeObjects({ prefix: itemPath });
     });
