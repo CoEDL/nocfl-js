@@ -8,20 +8,35 @@ import { isString, isUndefined, isArray, chunk } from "lodash";
 
 const specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
 
+/**
+ * A transfer Object
+ * @typedef {Object} Transfer
+ * @property {String} localPath - the path to the file locally that you want to upload to the item folder
+ * @property {String} json - a JSON object to store in the file directly
+ * @property {String} content - some content to store in the file directly
+ * @property {String} target - the target name for the file; this will be set relative to the item path
+ */
+
+/**
+ * An AWS Credentials Object
+ * @typedef {Object} Credentials
+ * @property{string} bucket - the AWS bucket to connect to
+ * @property {string} accessKeyId - the AWS accessKey
+ * @property {string} secretAccessKey - the AWS secretAccessKey
+ * @property {string} region - the AWS region
+ * @property {string} [endpoint] - the endpoint URL when using an S3 like service (e.g. Minio)
+ * @property {boolean} [forcePathStyle] - whether to force path style endpoints (required for Minio and the like)
+ */
+
 /** Class representing an S3 store. */
 export class Store {
     /**
      * Interact with a store in an S3 bucket
      * @constructor
+     * @param {Credentials} credentials - the AWS credentials to use for the connection
      * @param {string} className - the class name of the item being operated on - must match: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$
      * @param {string} id - the id of the item being operated on - must match: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$
      * @param {string} [domain] - provide this to prefix the paths by domain
-     * @param {string} credentials.bucket - the AWS bucket to connect to
-     * @param {string} credentials.accessKeyId - the AWS accessKey
-     * @param {string} credentials.secretAccessKey - the AWS secretAccessKey
-     * @param {string} credentials.region - the AWS region
-     * @param {string} [credentials.endpoint] - the endpoint URL when using an S3 like service (e.g. Minio)
-     * @param {boolean} [credentials.forcePathStyle] - whether to force path style endpoints (required for Minio and the like)
      * @param {number} [splay=1] - the number of characters (from the start of the identifer) when converting the id to a path
      */
     constructor({ domain = undefined, className, id, credentials, splay = 1 }) {
@@ -125,7 +140,7 @@ export class Store {
      * @return {Object}
      */
     async getItemIdentifier() {
-        return JSON.parse(await this.get({ target: "nocfl.identifier.json" }));
+        return await this.getJSON({ target: "nocfl.identifier.json" });
     }
 
     /**
@@ -133,7 +148,7 @@ export class Store {
      * @return {Object}
      */
     async getItemInventory() {
-        return JSON.parse(await this.get({ target: "nocfl.inventory.json" }));
+        return await this.getJSON({ target: "nocfl.inventory.json" });
     }
 
     /**
@@ -214,15 +229,6 @@ export class Store {
         target = nodePath.join(this.itemPath, target);
         return await this.bucket.getPresignedUrl({ target, download });
     }
-
-    /**
-     * A transfer Object
-     * @typedef {Object} Transfer
-     * @property {String} localPath - the path to the file locally that you want to upload to the item folder
-     * @property {String} json - a JSON object to store in the file directly
-     * @property {String} content - some content to store in the file directly
-     * @property {String} target - the target name for the file; this will be set relative to the item path
-     */
 
     /**
      * Put a file into the item on the storage
