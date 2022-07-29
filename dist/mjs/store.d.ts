@@ -1,20 +1,33 @@
+/**
+ * A transfer Object
+ * @typedef {Object} Transfer
+ * @property {String} localPath - the path to the file locally that you want to upload to the item folder
+ * @property {String} json - a JSON object to store in the file directly
+ * @property {String} content - some content to store in the file directly
+ * @property {String} target - the target name for the file; this will be set relative to the item path
+ */
+/**
+ * An AWS Credentials Object
+ * @typedef {Object} Credentials
+ * @property{string} bucket - the AWS bucket to connect to
+ * @property {string} accessKeyId - the AWS accessKey
+ * @property {string} secretAccessKey - the AWS secretAccessKey
+ * @property {string} region - the AWS region
+ * @property {string} [endpoint] - the endpoint URL when using an S3 like service (e.g. Minio)
+ * @property {boolean} [forcePathStyle] - whether to force path style endpoints (required for Minio and the like)
+ */
 /** Class representing an S3 store. */
 export class Store {
     /**
      * Interact with a store in an S3 bucket
      * @constructor
+     * @param {Credentials} credentials - the AWS credentials to use for the connection
      * @param {string} className - the class name of the item being operated on - must match: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$
      * @param {string} id - the id of the item being operated on - must match: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$
      * @param {string} [domain] - provide this to prefix the paths by domain
-     * @param {string} credentials.bucket - the AWS bucket to connect to
-     * @param {string} credentials.accessKeyId - the AWS accessKey
-     * @param {string} credentials.secretAccessKey - the AWS secretAccessKey
-     * @param {string} credentials.region - the AWS region
-     * @param {string} [credentials.endpoint] - the endpoint URL when using an S3 like service (e.g. Minio)
-     * @param {boolean} [credentials.forcePathStyle] - whether to force path style endpoints (required for Minio and the like)
      * @param {number} [splay=1] - the number of characters (from the start of the identifer) when converting the id to a path
      */
-    constructor({ domain, className, id, credentials, splay }: string);
+    constructor({ domain, className, id, credentials, splay }: Credentials);
     credentials: any;
     bucket: Bucket;
     id: any;
@@ -105,14 +118,6 @@ export class Store {
      */
     getPresignedUrl({ target, download }: string): Promise<string>;
     /**
-     * A transfer Object
-     * @typedef {Object} Transfer
-     * @property {String} localPath - the path to the file locally that you want to upload to the item folder
-     * @property {String} json - a JSON object to store in the file directly
-     * @property {String} content - some content to store in the file directly
-     * @property {String} target - the target name for the file; this will be set relative to the item path
-     */
-    /**
      * Put a file into the item on the storage
      * @param {String} localPath - the path to the file locally that you want to upload to the item folder
      * @param {String} json - a JSON object to store in the file directly
@@ -129,6 +134,10 @@ export class Store {
      */
     delete({ target, prefix }?: string | string[] | undefined): Promise<import("@aws-sdk/types").ResponseMetadata | undefined>;
     /**
+     * Delete the item
+     */
+    deleteItem(): Promise<import("@aws-sdk/types").ResponseMetadata | undefined>;
+    /**
      * Recursively walk and list all of the files for the item
      * @return a list of files
      */
@@ -142,4 +151,54 @@ export class Store {
      */
     private __updateInventory;
 }
+/**
+ * A transfer Object
+ */
+export type Transfer = {
+    /**
+     * - the path to the file locally that you want to upload to the item folder
+     */
+    localPath: string;
+    /**
+     * - a JSON object to store in the file directly
+     */
+    json: string;
+    /**
+     * - some content to store in the file directly
+     */
+    content: string;
+    /**
+     * - the target name for the file; this will be set relative to the item path
+     */
+    target: string;
+};
+/**
+ * An AWS Credentials Object
+ */
+export type Credentials = {
+    /**
+     * - the AWS bucket to connect to
+     */
+    bucket: string;
+    /**
+     * - the AWS accessKey
+     */
+    accessKeyId: string;
+    /**
+     * - the AWS secretAccessKey
+     */
+    secretAccessKey: string;
+    /**
+     * - the AWS region
+     */
+    region: string;
+    /**
+     * - the endpoint URL when using an S3 like service (e.g. Minio)
+     */
+    endpoint?: string | undefined;
+    /**
+     * - whether to force path style endpoints (required for Minio and the like)
+     */
+    forcePathStyle?: boolean | undefined;
+};
 import { Bucket } from "./s3.js";

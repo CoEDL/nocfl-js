@@ -80,20 +80,33 @@ var nodePath = __importStar(require("path"));
 var hasha_1 = __importDefault(require("hasha"));
 var lodash_1 = require("lodash");
 var specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
+/**
+ * A transfer Object
+ * @typedef {Object} Transfer
+ * @property {String} localPath - the path to the file locally that you want to upload to the item folder
+ * @property {String} json - a JSON object to store in the file directly
+ * @property {String} content - some content to store in the file directly
+ * @property {String} target - the target name for the file; this will be set relative to the item path
+ */
+/**
+ * An AWS Credentials Object
+ * @typedef {Object} Credentials
+ * @property{string} bucket - the AWS bucket to connect to
+ * @property {string} accessKeyId - the AWS accessKey
+ * @property {string} secretAccessKey - the AWS secretAccessKey
+ * @property {string} region - the AWS region
+ * @property {string} [endpoint] - the endpoint URL when using an S3 like service (e.g. Minio)
+ * @property {boolean} [forcePathStyle] - whether to force path style endpoints (required for Minio and the like)
+ */
 /** Class representing an S3 store. */
 var Store = /** @class */ (function () {
     /**
      * Interact with a store in an S3 bucket
      * @constructor
+     * @param {Credentials} credentials - the AWS credentials to use for the connection
      * @param {string} className - the class name of the item being operated on - must match: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$
      * @param {string} id - the id of the item being operated on - must match: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$
      * @param {string} [domain] - provide this to prefix the paths by domain
-     * @param {string} credentials.bucket - the AWS bucket to connect to
-     * @param {string} credentials.accessKeyId - the AWS accessKey
-     * @param {string} credentials.secretAccessKey - the AWS secretAccessKey
-     * @param {string} credentials.region - the AWS region
-     * @param {string} [credentials.endpoint] - the endpoint URL when using an S3 like service (e.g. Minio)
-     * @param {boolean} [credentials.forcePathStyle] - whether to force path style endpoints (required for Minio and the like)
      * @param {number} [splay=1] - the number of characters (from the start of the identifer) when converting the id to a path
      */
     function Store(_a) {
@@ -197,13 +210,10 @@ var Store = /** @class */ (function () {
      */
     Store.prototype.getItemIdentifier = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var _a, _b;
-            return __generator(this, function (_c) {
-                switch (_c.label) {
-                    case 0:
-                        _b = (_a = JSON).parse;
-                        return [4 /*yield*/, this.get({ target: "nocfl.identifier.json" })];
-                    case 1: return [2 /*return*/, _b.apply(_a, [_c.sent()])];
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0: return [4 /*yield*/, this.getJSON({ target: "nocfl.identifier.json" })];
+                    case 1: return [2 /*return*/, _a.sent()];
                 }
             });
         });
@@ -214,13 +224,10 @@ var Store = /** @class */ (function () {
      */
     Store.prototype.getItemInventory = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var _a, _b;
-            return __generator(this, function (_c) {
-                switch (_c.label) {
-                    case 0:
-                        _b = (_a = JSON).parse;
-                        return [4 /*yield*/, this.get({ target: "nocfl.inventory.json" })];
-                    case 1: return [2 /*return*/, _b.apply(_a, [_c.sent()])];
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0: return [4 /*yield*/, this.getJSON({ target: "nocfl.inventory.json" })];
+                    case 1: return [2 /*return*/, _a.sent()];
                 }
             });
         });
@@ -361,14 +368,6 @@ var Store = /** @class */ (function () {
         });
     };
     /**
-     * A transfer Object
-     * @typedef {Object} Transfer
-     * @property {String} localPath - the path to the file locally that you want to upload to the item folder
-     * @property {String} json - a JSON object to store in the file directly
-     * @property {String} content - some content to store in the file directly
-     * @property {String} target - the target name for the file; this will be set relative to the item path
-     */
-    /**
      * Put a file into the item on the storage
      * @param {String} localPath - the path to the file locally that you want to upload to the item folder
      * @param {String} json - a JSON object to store in the file directly
@@ -422,7 +421,7 @@ var Store = /** @class */ (function () {
                     case 0: return [4 /*yield*/, this.itemExists()];
                     case 1:
                         if (!(_c.sent())) {
-                            throw new Error("You need to 'createItem' before you can add content to it");
+                            throw new Error("The item doesn't exist");
                         }
                         transfer = transfer.bind(this);
                         if (!batch.length) return [3 /*break*/, 6];
@@ -469,7 +468,7 @@ var Store = /** @class */ (function () {
                         return [4 /*yield*/, this.itemExists()];
                     case 1:
                         if (!(_d.sent())) {
-                            throw new Error("You need to 'createItem' before you can remove content from it");
+                            throw new Error("The item doesn't exist");
                         }
                         if (!target) return [3 /*break*/, 3];
                         if (!(0, lodash_1.isString)(target) && !(0, lodash_1.isArray)(target)) {
@@ -489,6 +488,24 @@ var Store = /** @class */ (function () {
                         return [4 /*yield*/, this.bucket.removeObjects({ prefix: prefix })];
                     case 4: return [2 /*return*/, _d.sent()];
                     case 5: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /**
+     * Delete the item
+     */
+    Store.prototype.deleteItem = function () {
+        return __awaiter(this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0: return [4 /*yield*/, this.itemExists()];
+                    case 1:
+                        if (!(_a.sent())) {
+                            throw new Error("The item doesn't exist");
+                        }
+                        return [4 /*yield*/, this.bucket.removeObjects({ prefix: this.itemPath })];
+                    case 2: return [2 /*return*/, _a.sent()];
                 }
             });
         });
