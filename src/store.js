@@ -80,6 +80,7 @@ export class Store {
         this.itemPath = domain
             ? `${domain.toLowerCase()}/${className.toLowerCase()}/${id.slice(0, splay)}/${id}`
             : `${className.toLowerCase()}/${id.slice(0, splay)}/${id}`;
+        this.splay = splay;
         this.roCrateFile = nodePath.join(this.itemPath, "ro-crate-metadata.json");
         this.inventoryFile = nodePath.join(this.itemPath, "nocfl.inventory.json");
         this.identifierFile = nodePath.join(this.itemPath, "nocfl.identifier.json");
@@ -197,6 +198,7 @@ export class Store {
                 className: this.className,
                 domain: this.domain,
                 itemPath: this.itemPath,
+                splay: this.splay,
             },
         });
     }
