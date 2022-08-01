@@ -15,6 +15,10 @@
         "cleanup": "docker-compose stop && docker-compose rm -f",
         "generate-docs": "./node_modules/.bin/jsdoc --configure jsdoc.json --verbose"
     },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/CoEDL/nocfl-js"
+    },
     "author": "Marco La Rosa",
     "license": "ISC",
     "exports": {

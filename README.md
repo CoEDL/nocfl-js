@@ -15,9 +15,10 @@ The name of this library came from [Peter Sefton](https://github.com/ptsefton).
 This library has extensive tests. To run them: `npm run test:watch`. You will need docker as this
 command will start a local S3 service called [MinIO](https://hub.docker.com/r/minio/minio/).
 
-# Documentation
+# Repository and Documentation
 
-[https://coedl.github.io/nocfl-js/](https://coedl.github.io/nocfl-js/)
+-   Repository: [https://github.com/CoEDL/nocfl-js](https://github.com/CoEDL/nocfl-js)
+-   Documentation: [https://coedl.github.io/nocfl-js/](https://coedl.github.io/nocfl-js/)
 
 # About this library
 
