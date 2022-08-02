@@ -4,7 +4,8 @@ const { createReadStream } = fsExtra;
 import crypto from "crypto";
 import * as nodePath from "path";
 import hasha from "hasha";
-import { isString, isUndefined, isArray, chunk } from "lodash";
+import lodashPkg from "lodash";
+const { isString, isUndefined, isArray, chunk } = lodashPkg;
 
 const specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
 
