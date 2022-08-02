@@ -83,7 +83,7 @@
   <body>
 
     <nav class="navbar" id="navbar">
-      <div class="navbar-heading" id="navbar-heading"><a href="index.html"><h2 class="navbar-heading-text">Home</h2></a></div><div class="search-box" id="search-box"><div class="search-box-input-container"><input class="search-box-input" type="text" placeholder="Search..." id="search-box-input" /><svg class="search-icon" alt="search-icon"><use xlink:href="#search-icon"></use></svg></div><div class="search-item-container" id="search-item-container"><ul class="search-item-ul" id="search-item-ul"></ul></div></div><div class="sidebar-main-content" id="sidebar-main-content"><div class="accordion collapsed" id="9498878" > <h3 class="accordion-heading">Classes<svg><use xlink:href="#down-icon"></use></svg></h3><ul class="accordion-content"><li class="accordion collapsed child" id=7463978><div class="accordion-heading child"><a href="Store.html">Store</a><svg><use xlink:href="#down-icon"></use></svg></div><ul class='methods accordion-content'><li data-type='method'><a href="Store.html#createItem">createItem</a></li><li data-type='method'><a href="Store.html#delete">delete</a></li><li data-type='method'><a href="Store.html#deleteItem">deleteItem</a></li><li data-type='method'><a href="Store.html#get">get</a></li><li data-type='method'><a href="Store.html#getItemIdentifier">getItemIdentifier</a></li><li data-type='method'><a href="Store.html#getItemInventory">getItemInventory</a></li><li data-type='method'><a href="Store.html#getItemPath">getItemPath</a></li><li data-type='method'><a href="Store.html#getJSON">getJSON</a></li><li data-type='method'><a href="Store.html#getPresignedUrl">getPresignedUrl</a></li><li data-type='method'><a href="Store.html#itemExists">itemExists</a></li><li data-type='method'><a href="Store.html#listResources">listResources</a></li><li data-type='method'><a href="Store.html#pathExists">pathExists</a></li><li data-type='method'><a href="Store.html#put">put</a></li><li data-type='method'><a href="Store.html#stat">stat</a></li></ul></li></ul> </div><div class="accordion collapsed" id="2370206" > <h3 class="accordion-heading">Global<svg><use xlink:href="#down-icon"></use></svg></h3><ul class="accordion-content"><li class="accordion-list" id=""><a href="global.html#Credentials">Credentials</a></li><li class="accordion-list" id=""><a href="global.html#Transfer">Transfer</a></li></ul> </div>
+      <div class="navbar-heading" id="navbar-heading"><a href="index.html"><h2 class="navbar-heading-text">Home</h2></a></div><div class="search-box" id="search-box"><div class="search-box-input-container"><input class="search-box-input" type="text" placeholder="Search..." id="search-box-input" /><svg class="search-icon" alt="search-icon"><use xlink:href="#search-icon"></use></svg></div><div class="search-item-container" id="search-item-container"><ul class="search-item-ul" id="search-item-ul"></ul></div></div><div class="sidebar-main-content" id="sidebar-main-content"><div class="accordion collapsed" id="7978767" > <h3 class="accordion-heading">Classes<svg><use xlink:href="#down-icon"></use></svg></h3><ul class="accordion-content"><li class="accordion collapsed child" id=7061294><div class="accordion-heading child"><a href="Store.html">Store</a><svg><use xlink:href="#down-icon"></use></svg></div><ul class='methods accordion-content'><li data-type='method'><a href="Store.html#createItem">createItem</a></li><li data-type='method'><a href="Store.html#delete">delete</a></li><li data-type='method'><a href="Store.html#deleteItem">deleteItem</a></li><li data-type='method'><a href="Store.html#get">get</a></li><li data-type='method'><a href="Store.html#getItemIdentifier">getItemIdentifier</a></li><li data-type='method'><a href="Store.html#getItemInventory">getItemInventory</a></li><li data-type='method'><a href="Store.html#getItemPath">getItemPath</a></li><li data-type='method'><a href="Store.html#getJSON">getJSON</a></li><li data-type='method'><a href="Store.html#getPresignedUrl">getPresignedUrl</a></li><li data-type='method'><a href="Store.html#itemExists">itemExists</a></li><li data-type='method'><a href="Store.html#listResources">listResources</a></li><li data-type='method'><a href="Store.html#pathExists">pathExists</a></li><li data-type='method'><a href="Store.html#put">put</a></li><li data-type='method'><a href="Store.html#stat">stat</a></li></ul></li></ul> </div><div class="accordion collapsed" id="497997" > <h3 class="accordion-heading">Global<svg><use xlink:href="#down-icon"></use></svg></h3><ul class="accordion-content"><li class="accordion-list" id=""><a href="global.html#Credentials">Credentials</a></li><li class="accordion-list" id=""><a href="global.html#Transfer">Transfer</a></li></ul> </div>
       
 
     </nav>
@@ -115,7 +115,8 @@ const { createReadStream } = fsExtra;
 import crypto from "crypto";
 import * as nodePath from "path";
 import hasha from "hasha";
-import { isString, isUndefined, isArray, chunk } from "lodash";
+import lodashPkg from "lodash";
+const { isString, isUndefined, isArray, chunk } = lodashPkg;
 
 const specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
 
@@ -191,6 +192,7 @@ export class Store {
         this.itemPath = domain
             ? `${domain.toLowerCase()}/${className.toLowerCase()}/${id.slice(0, splay)}/${id}`
             : `${className.toLowerCase()}/${id.slice(0, splay)}/${id}`;
+        this.splay = splay;
         this.roCrateFile = nodePath.join(this.itemPath, "ro-crate-metadata.json");
         this.inventoryFile = nodePath.join(this.itemPath, "nocfl.inventory.json");
         this.identifierFile = nodePath.join(this.itemPath, "nocfl.identifier.json");
@@ -218,6 +220,10 @@ export class Store {
                         "@id": "./",
                     },
                     identifier: "ro-crate-metadata.json",
+                },
+                {
+                    "@id": "./",
+                    "@type": ["Dataset"],
                 },
             ],
         };
@@ -308,6 +314,7 @@ export class Store {
                 className: this.className,
                 domain: this.domain,
                 itemPath: this.itemPath,
+                splay: this.splay,
             },
         });
     }
@@ -347,15 +354,17 @@ export class Store {
      * @param {String} json - a JSON object to store in the file directly
      * @param {String} content - some content to store in the file directly
      * @param {String} target - the target name for the file; this will be set relative to the item path
+     * @param {Boolean} registerFile = true - the target name for the file; this will be set relative to the item path
      * @param {Transfer[]} batch - an array of objects defining content to put into the store where the params
      *  are as for the single case. Uploads will be run 5 at a time.
      */
-    async put({ localPath, json, content, target, batch = [] }) {
+    async put({ localPath, json, content, target, registerFile = true, batch = [] }) {
         if (!(await this.itemExists())) {
             throw new Error(`The item doesn't exist`);
         }
 
         transfer = transfer.bind(this);
+        updateCrateMetadata = updateCrateMetadata.bind(this);
         if (batch.length) {
             let chunks = chunk(batch, 5);
             for (let chunk of chunks) {
@@ -363,10 +372,10 @@ export class Store {
                 await Promise.all(transfers);
             }
         } else {
-            await transfer({ localPath, json, content, target });
+            await transfer({ localPath, json, content, target, registerFile });
         }
 
-        async function transfer({ localPath, json, content, target }) {
+        async function transfer({ localPath, json, content, target, registerFile }) {
             if (specialFiles.includes(target)) {
                 throw new Error(
                     `You can't upload a file called '${target} as that's a special file used by the system`
@@ -381,7 +390,43 @@ export class Store {
                 await this.__updateInventory({ target, hash: hasha(content) });
             }
             let s3Target = nodePath.join(this.itemPath, target);
-            return await this.bucket.upload({ localPath, json, content, target: s3Target });
+            await this.bucket.upload({ localPath, json, content, target: s3Target });
+
+            await updateCrateMetadata({ target, registerFile });
+        }
+
+        async function updateCrateMetadata({ target, registerFile }) {
+            // we don't register the ro crate file
+            if (registerFile &amp;&amp; target === "ro-crate-metadata.json") return;
+
+            // get the crate file
+            let crate = await this.getJSON({ target: "ro-crate-metadata.json" });
+
+            // find the root dataset
+            let rootDescriptor = crate["@graph"].filter(
+                (e) => e["@id"] === "ro-crate-metadata.json" &amp;&amp; e["@type"] === "CreativeWork"
+            )[0];
+            let rootDataset = crate["@graph"].filter(
+                (e) => e["@id"] === rootDescriptor.about["@id"]
+            )[0];
+
+            // update the hasPart property if required
+            if (!rootDataset.hasPart) {
+                rootDataset.hasPart = [{ "@id": target }];
+            } else {
+                let partReferenced = rootDataset.hasPart.filter((p) => p["@id"] === target);
+                if (!partReferenced.length) {
+                    rootDataset.hasPart.push({ "@id": target });
+                }
+            }
+            crate["@graph"] = crate["@graph"].map((e) => {
+                if (e["@id"] === rootDescriptor.about["@id"]) return rootDataset;
+                return e;
+            });
+            await this.bucket.upload({
+                target: this.roCrateFile,
+                json: crate,
+            });
         }
     }
 

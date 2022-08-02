@@ -34,6 +34,7 @@ export class Store {
     className: any;
     domain: any;
     itemPath: string;
+    splay: any;
     roCrateFile: string;
     inventoryFile: string;
     identifierFile: string;
@@ -51,7 +52,7 @@ export class Store {
             "@vocab"?: undefined;
             txc?: undefined;
         })[];
-        "@graph": {
+        "@graph": ({
             "@id": string;
             "@type": string;
             conformsTo: {
@@ -61,7 +62,13 @@ export class Store {
                 "@id": string;
             };
             identifier: string;
-        }[];
+        } | {
+            "@id": string;
+            "@type": string[];
+            conformsTo?: undefined;
+            about?: undefined;
+            identifier?: undefined;
+        })[];
     };
     /**
      * Check whether the item exists in the storage
@@ -123,10 +130,11 @@ export class Store {
      * @param {String} json - a JSON object to store in the file directly
      * @param {String} content - some content to store in the file directly
      * @param {String} target - the target name for the file; this will be set relative to the item path
+     * @param {Boolean} registerFile = true - the target name for the file; this will be set relative to the item path
      * @param {Transfer[]} batch - an array of objects defining content to put into the store where the params
      *  are as for the single case. Uploads will be run 5 at a time.
      */
-    put({ localPath, json, content, target, batch }: string): Promise<void>;
+    put({ localPath, json, content, target, registerFile, batch }: string): Promise<void>;
     /**
      * Remove a file from an item in the storage
      * @param {String|Array.<String>} [target] - the target name for the file or array of target files; this will be set relative to the item path

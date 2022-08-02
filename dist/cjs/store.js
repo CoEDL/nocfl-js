@@ -78,7 +78,8 @@ var createReadStream = fs_extra_1.default.createReadStream;
 var crypto_1 = __importDefault(require("crypto"));
 var nodePath = __importStar(require("path"));
 var hasha_1 = __importDefault(require("hasha"));
-var lodash_1 = require("lodash");
+var lodash_1 = __importDefault(require("lodash"));
+var isString = lodash_1.default.isString, isUndefined = lodash_1.default.isUndefined, isArray = lodash_1.default.isArray, chunk = lodash_1.default.chunk;
 var specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
 /**
  * A transfer Object
@@ -123,13 +124,13 @@ var Store = /** @class */ (function () {
                 throw new Error("Missing required property: '".concat(property, "'"));
             }
         });
-        if (!(0, lodash_1.isString)(id)) {
+        if (!isString(id)) {
             throw new Error("The 'id' must be a string");
         }
-        if (!(0, lodash_1.isString)(className)) {
+        if (!isString(className)) {
             throw new Error("The 'className' must be a string");
         }
-        if (!(0, lodash_1.isString)(domain) && !(0, lodash_1.isUndefined)(domain)) {
+        if (!isString(domain) && !isUndefined(domain)) {
             throw new Error("The 'domain' must be a string");
         }
         if (!id.match(/^[a-z,A-Z][a-z,A-Z,0-9,_]+$/)) {
@@ -146,6 +147,7 @@ var Store = /** @class */ (function () {
         this.itemPath = domain
             ? "".concat(domain.toLowerCase(), "/").concat(className.toLowerCase(), "/").concat(id.slice(0, splay), "/").concat(id)
             : "".concat(className.toLowerCase(), "/").concat(id.slice(0, splay), "/").concat(id);
+        this.splay = splay;
         this.roCrateFile = nodePath.join(this.itemPath, "ro-crate-metadata.json");
         this.inventoryFile = nodePath.join(this.itemPath, "nocfl.inventory.json");
         this.identifierFile = nodePath.join(this.itemPath, "nocfl.identifier.json");
@@ -173,6 +175,10 @@ var Store = /** @class */ (function () {
                         "@id": "./",
                     },
                     identifier: "ro-crate-metadata.json",
+                },
+                {
+                    "@id": "./",
+                    "@type": ["Dataset"],
                 },
             ],
         };
@@ -304,6 +310,7 @@ var Store = /** @class */ (function () {
                                     className: this.className,
                                     domain: this.domain,
                                     itemPath: this.itemPath,
+                                    splay: this.splay,
                                 },
                             })];
                     case 4:
@@ -373,14 +380,15 @@ var Store = /** @class */ (function () {
      * @param {String} json - a JSON object to store in the file directly
      * @param {String} content - some content to store in the file directly
      * @param {String} target - the target name for the file; this will be set relative to the item path
+     * @param {Boolean} registerFile = true - the target name for the file; this will be set relative to the item path
      * @param {Transfer[]} batch - an array of objects defining content to put into the store where the params
      *  are as for the single case. Uploads will be run 5 at a time.
      */
     Store.prototype.put = function (_a) {
-        var localPath = _a.localPath, json = _a.json, content = _a.content, target = _a.target, _b = _a.batch, batch = _b === void 0 ? [] : _b;
+        var localPath = _a.localPath, json = _a.json, content = _a.content, target = _a.target, _b = _a.registerFile, registerFile = _b === void 0 ? true : _b, _c = _a.batch, batch = _c === void 0 ? [] : _c;
         return __awaiter(this, void 0, void 0, function () {
             function transfer(_a) {
-                var localPath = _a.localPath, json = _a.json, content = _a.content, target = _a.target;
+                var localPath = _a.localPath, json = _a.json, content = _a.content, target = _a.target, registerFile = _a.registerFile;
                 return __awaiter(this, void 0, void 0, function () {
                     var hash, s3Target;
                     return __generator(this, function (_b) {
@@ -410,40 +418,87 @@ var Store = /** @class */ (function () {
                             case 7:
                                 s3Target = nodePath.join(this.itemPath, target);
                                 return [4 /*yield*/, this.bucket.upload({ localPath: localPath, json: json, content: content, target: s3Target })];
-                            case 8: return [2 /*return*/, _b.sent()];
+                            case 8:
+                                _b.sent();
+                                return [4 /*yield*/, updateCrateMetadata({ target: target, registerFile: registerFile })];
+                            case 9:
+                                _b.sent();
+                                return [2 /*return*/];
+                        }
+                    });
+                });
+            }
+            function updateCrateMetadata(_a) {
+                var target = _a.target, registerFile = _a.registerFile;
+                return __awaiter(this, void 0, void 0, function () {
+                    var crate, rootDescriptor, rootDataset, partReferenced;
+                    return __generator(this, function (_b) {
+                        switch (_b.label) {
+                            case 0:
+                                // we don't register the ro crate file
+                                if (registerFile && target === "ro-crate-metadata.json")
+                                    return [2 /*return*/];
+                                return [4 /*yield*/, this.getJSON({ target: "ro-crate-metadata.json" })];
+                            case 1:
+                                crate = _b.sent();
+                                rootDescriptor = crate["@graph"].filter(function (e) { return e["@id"] === "ro-crate-metadata.json" && e["@type"] === "CreativeWork"; })[0];
+                                rootDataset = crate["@graph"].filter(function (e) { return e["@id"] === rootDescriptor.about["@id"]; })[0];
+                                // update the hasPart property if required
+                                if (!rootDataset.hasPart) {
+                                    rootDataset.hasPart = [{ "@id": target }];
+                                }
+                                else {
+                                    partReferenced = rootDataset.hasPart.filter(function (p) { return p["@id"] === target; });
+                                    if (!partReferenced.length) {
+                                        rootDataset.hasPart.push({ "@id": target });
+                                    }
+                                }
+                                crate["@graph"] = crate["@graph"].map(function (e) {
+                                    if (e["@id"] === rootDescriptor.about["@id"])
+                                        return rootDataset;
+                                    return e;
+                                });
+                                return [4 /*yield*/, this.bucket.upload({
+                                        target: this.roCrateFile,
+                                        json: crate,
+                                    })];
+                            case 2:
+                                _b.sent();
+                                return [2 /*return*/];
                         }
                     });
                 });
             }
             var chunks, _i, chunks_1, chunk_1, transfers;
-            return __generator(this, function (_c) {
-                switch (_c.label) {
+            return __generator(this, function (_d) {
+                switch (_d.label) {
                     case 0: return [4 /*yield*/, this.itemExists()];
                     case 1:
-                        if (!(_c.sent())) {
+                        if (!(_d.sent())) {
                             throw new Error("The item doesn't exist");
                         }
                         transfer = transfer.bind(this);
+                        updateCrateMetadata = updateCrateMetadata.bind(this);
                         if (!batch.length) return [3 /*break*/, 6];
-                        chunks = (0, lodash_1.chunk)(batch, 5);
+                        chunks = chunk(batch, 5);
                         _i = 0, chunks_1 = chunks;
-                        _c.label = 2;
+                        _d.label = 2;
                     case 2:
                         if (!(_i < chunks_1.length)) return [3 /*break*/, 5];
                         chunk_1 = chunks_1[_i];
                         transfers = chunk_1.map(function (t) { return transfer(t); });
                         return [4 /*yield*/, Promise.all(transfers)];
                     case 3:
-                        _c.sent();
-                        _c.label = 4;
+                        _d.sent();
+                        _d.label = 4;
                     case 4:
                         _i++;
                         return [3 /*break*/, 2];
                     case 5: return [3 /*break*/, 8];
-                    case 6: return [4 /*yield*/, transfer({ localPath: localPath, json: json, content: content, target: target })];
+                    case 6: return [4 /*yield*/, transfer({ localPath: localPath, json: json, content: content, target: target, registerFile: registerFile })];
                     case 7:
-                        _c.sent();
-                        _c.label = 8;
+                        _d.sent();
+                        _d.label = 8;
                     case 8: return [2 /*return*/];
                 }
             });
@@ -471,17 +526,17 @@ var Store = /** @class */ (function () {
                             throw new Error("The item doesn't exist");
                         }
                         if (!target) return [3 /*break*/, 3];
-                        if (!(0, lodash_1.isString)(target) && !(0, lodash_1.isArray)(target)) {
+                        if (!isString(target) && !isArray(target)) {
                             throw new Error("target must be a string or array of strings");
                         }
-                        if ((0, lodash_1.isString)(target))
+                        if (isString(target))
                             target = [target];
                         keys = target.map(function (t) { return nodePath.join(_this.itemPath, t); });
                         return [4 /*yield*/, this.bucket.removeObjects({ keys: keys })];
                     case 2: return [2 /*return*/, _d.sent()];
                     case 3:
                         if (!prefix) return [3 /*break*/, 5];
-                        if (!(0, lodash_1.isString)(prefix)) {
+                        if (!isString(prefix)) {
                             throw new Error("prefix must be a string");
                         }
                         prefix = nodePath.join(this.itemPath, prefix);
