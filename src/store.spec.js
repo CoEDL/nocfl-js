@@ -239,6 +239,76 @@ describe("Test storage actions", () => {
         await bucket.removeObjects({ prefix: itemPath });
         await remove(path.join("/tmp", file));
     });
+    test("it should be able to upload a file and register it in the crate file", async () => {
+        const itemPath = path.join("item", "t", "test");
+        await bucket.removeObjects({ prefix: itemPath });
+
+        const file = "s3.js";
+        const store = new Store({ className: "item", id: "test", credentials });
+        await store.createItem();
+
+        await store.put({ localPath: path.join(__dirname, file), target: file });
+
+        let crate = await store.getJSON({ target: "ro-crate-metadata.json" });
+        let rootDataset = crate["@graph"].filter((e) => e["@id"] === "./")[0];
+        expect(rootDataset.hasPart).toEqual([{ "@id": "s3.js" }]);
+
+        await bucket.removeObjects({ prefix: itemPath });
+        await remove(path.join("/tmp", file));
+    });
+    test("it should be able to upload a file, register it and not overwrite an existing entry", async () => {
+        const itemPath = path.join("item", "t", "test");
+        await bucket.removeObjects({ prefix: itemPath });
+
+        const file = "s3.js";
+        const store = new Store({ className: "item", id: "test", credentials });
+        await store.createItem();
+
+        // add a file
+        await store.put({ localPath: path.join(__dirname, file), target: file });
+
+        // check that it's registered in the crate file
+        let crate = await store.getJSON({ target: "ro-crate-metadata.json" });
+        let rootDataset = crate["@graph"].filter((e) => e["@id"] === "./")[0];
+        expect(rootDataset.hasPart).toEqual([{ "@id": "s3.js" }]);
+
+        // add a property to its entry in the crate file
+        rootDataset.hasPart[0].name = "s3.js";
+        crate["@graph"][1] = rootDataset;
+        await store.put({ target: "ro-crate-metadata.json", json: crate });
+
+        //  add it again
+        await store.put({ localPath: path.join(__dirname, file), target: file });
+
+        // check that the exisiting entry in the crate file was not overwritten
+        crate = await store.getJSON({ target: "ro-crate-metadata.json" });
+        rootDataset = crate["@graph"].filter((e) => e["@id"] === "./")[0];
+        expect(rootDataset.hasPart).toEqual([{ "@id": "s3.js", name: "s3.js" }]);
+
+        await bucket.removeObjects({ prefix: itemPath });
+        await remove(path.join("/tmp", file));
+    });
+    test("it should be able to upload a file and NOT register it in the crate file", async () => {
+        const itemPath = path.join("item", "t", "test");
+        await bucket.removeObjects({ prefix: itemPath });
+
+        const file = "s3.js";
+        const store = new Store({ className: "item", id: "test", credentials });
+        await store.createItem();
+
+        await store.put({
+            localPath: path.join(__dirname, file),
+            target: file,
+            registerFile: false,
+        });
+
+        let crate = await store.getJSON({ target: "ro-crate-metadata.json" });
+        let rootDataset = crate["@graph"].filter((e) => e["@id"] === "./")[0];
+        expect(rootDataset.hasPart).not.toBeDefined;
+
+        await bucket.removeObjects({ prefix: itemPath });
+        await remove(path.join("/tmp", file));
+    });
     test("it should be able to upload / download two files simultaneously", async () => {
         const itemPath = path.join("item", "t", "test");
         await bucket.removeObjects({ prefix: itemPath });

@@ -109,6 +109,10 @@ export class Store {
                     },
                     identifier: "ro-crate-metadata.json",
                 },
+                {
+                    "@id": "./",
+                    "@type": ["Dataset"],
+                },
             ],
         };
     }
@@ -238,15 +242,17 @@ export class Store {
      * @param {String} json - a JSON object to store in the file directly
      * @param {String} content - some content to store in the file directly
      * @param {String} target - the target name for the file; this will be set relative to the item path
+     * @param {Boolean} registerFile = true - the target name for the file; this will be set relative to the item path
      * @param {Transfer[]} batch - an array of objects defining content to put into the store where the params
      *  are as for the single case. Uploads will be run 5 at a time.
      */
-    async put({ localPath, json, content, target, batch = [] }) {
+    async put({ localPath, json, content, target, registerFile = true, batch = [] }) {
         if (!(await this.itemExists())) {
             throw new Error(`The item doesn't exist`);
         }
 
         transfer = transfer.bind(this);
+        updateCrateMetadata = updateCrateMetadata.bind(this);
         if (batch.length) {
             let chunks = chunk(batch, 5);
             for (let chunk of chunks) {
@@ -254,10 +260,10 @@ export class Store {
                 await Promise.all(transfers);
             }
         } else {
-            await transfer({ localPath, json, content, target });
+            await transfer({ localPath, json, content, target, registerFile });
         }
 
-        async function transfer({ localPath, json, content, target }) {
+        async function transfer({ localPath, json, content, target, registerFile }) {
             if (specialFiles.includes(target)) {
                 throw new Error(
                     `You can't upload a file called '${target} as that's a special file used by the system`
@@ -272,7 +278,43 @@ export class Store {
                 await this.__updateInventory({ target, hash: hasha(content) });
             }
             let s3Target = nodePath.join(this.itemPath, target);
-            return await this.bucket.upload({ localPath, json, content, target: s3Target });
+            await this.bucket.upload({ localPath, json, content, target: s3Target });
+
+            await updateCrateMetadata({ target, registerFile });
+        }
+
+        async function updateCrateMetadata({ target, registerFile }) {
+            // we don't register the ro crate file
+            if (registerFile && target === "ro-crate-metadata.json") return;
+
+            // get the crate file
+            let crate = await this.getJSON({ target: "ro-crate-metadata.json" });
+
+            // find the root dataset
+            let rootDescriptor = crate["@graph"].filter(
+                (e) => e["@id"] === "ro-crate-metadata.json" && e["@type"] === "CreativeWork"
+            )[0];
+            let rootDataset = crate["@graph"].filter(
+                (e) => e["@id"] === rootDescriptor.about["@id"]
+            )[0];
+
+            // update the hasPart property if required
+            if (!rootDataset.hasPart) {
+                rootDataset.hasPart = [{ "@id": target }];
+            } else {
+                let partReferenced = rootDataset.hasPart.filter((p) => p["@id"] === target);
+                if (!partReferenced.length) {
+                    rootDataset.hasPart.push({ "@id": target });
+                }
+            }
+            crate["@graph"] = crate["@graph"].map((e) => {
+                if (e["@id"] === rootDescriptor.about["@id"]) return rootDataset;
+                return e;
+            });
+            await this.bucket.upload({
+                target: this.roCrateFile,
+                json: crate,
+            });
         }
     }
 
