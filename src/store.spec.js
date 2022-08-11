@@ -526,6 +526,58 @@ describe("Test storage actions", () => {
 
         await bucket.removeObjects({ prefix: itemPath });
     });
+    test("it should be able to remove the whole item and not any others", async () => {
+        // delete item 1 and check item 2 is ok
+        //   item1 = test, item2 = test2
+        const itemPath1 = path.join("item", "t", "test");
+        const itemPath2 = path.join("item", "t", "test2");
+        await bucket.removeObjects({ prefix: itemPath1 });
+        await bucket.removeObjects({ prefix: itemPath2 });
+
+        const store = new Store({ className: "item", id: "test", credentials });
+        await store.createItem();
+        let resources = await store.listResources();
+        expect(resources.length).toEqual(3);
+
+        const store2 = new Store({ className: "item", id: "test2", credentials });
+        await store2.createItem();
+        let resources2 = await store2.listResources();
+        expect(resources2.length).toEqual(3);
+
+        await store.deleteItem();
+        let exists = await store.itemExists();
+        expect(exists).toBe(false);
+
+        resources2 = await store2.listResources();
+        expect(resources2.length).toEqual(3);
+
+        store2.deleteItem();
+        exists = await store.itemExists();
+        expect(exists).toBe(false);
+
+        await bucket.removeObjects({ prefix: itemPath1 });
+        await bucket.removeObjects({ prefix: itemPath2 });
+    });
+    test("it should fail with wrong argument type", async () => {
+        const itemPath = path.join("item", "t", "test");
+        await bucket.removeObjects({ prefix: itemPath });
+
+        const store = new Store({ className: "item", id: "test", credentials });
+        await store.createItem();
+
+        try {
+            await store.delete({ prefix: ["s3"] });
+        } catch (error) {
+            expect(error.message).toBe("prefix must be a string");
+        }
+        try {
+            await store.delete({ target: {} });
+        } catch (error) {
+            expect(error.message).toBe("target must be a string or array of strings");
+        }
+
+        await bucket.removeObjects({ prefix: itemPath });
+    });
     test("it should fail with wrong argument type", async () => {
         const itemPath = path.join("item", "t", "test");
         await bucket.removeObjects({ prefix: itemPath });

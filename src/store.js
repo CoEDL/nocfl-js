@@ -358,7 +358,7 @@ export class Store {
         if (!(await this.itemExists())) {
             throw new Error(`The item doesn't exist`);
         }
-        return await this.bucket.removeObjects({ prefix: this.itemPath });
+        return await this.bucket.removeObjects({ prefix: `${this.itemPath}/` });
     }
 
     /**
@@ -369,14 +369,14 @@ export class Store {
         listItemResources = listItemResources.bind(this);
         let resources = await listItemResources({});
         resources = resources.map((r) => {
-            r.Key = r.Key.replace(`${this.getItemPath()}/`, "");
+            r.Key = r.Key.replace(`${this.itemPath}/`, "");
             return r;
         });
         return resources;
 
         async function listItemResources({ continuationToken }) {
             let resources = await this.bucket.listObjects({
-                prefix: this.itemPath,
+                prefix: `${this.itemPath}/`,
                 continuationToken,
             });
             if (resources.NextContinuationToken) {
