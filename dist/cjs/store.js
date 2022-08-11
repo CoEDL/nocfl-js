@@ -559,7 +559,7 @@ var Store = /** @class */ (function () {
                         if (!(_a.sent())) {
                             throw new Error("The item doesn't exist");
                         }
-                        return [4 /*yield*/, this.bucket.removeObjects({ prefix: this.itemPath })];
+                        return [4 /*yield*/, this.bucket.removeObjects({ prefix: "".concat(this.itemPath, "/") })];
                     case 2: return [2 /*return*/, _a.sent()];
                 }
             });
@@ -578,7 +578,7 @@ var Store = /** @class */ (function () {
                     return __generator(this, function (_c) {
                         switch (_c.label) {
                             case 0: return [4 /*yield*/, this.bucket.listObjects({
-                                    prefix: this.itemPath,
+                                    prefix: "".concat(this.itemPath, "/"),
                                     continuationToken: continuationToken,
                                 })];
                             case 1:
@@ -602,7 +602,7 @@ var Store = /** @class */ (function () {
                     case 1:
                         resources = _a.sent();
                         resources = resources.map(function (r) {
-                            r.Key = r.Key.replace("".concat(_this.getItemPath(), "/"), "");
+                            r.Key = r.Key.replace("".concat(_this.itemPath, "/"), "");
                             return r;
                         });
                         return [2 /*return*/, resources];
