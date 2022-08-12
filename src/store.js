@@ -286,6 +286,8 @@ export class Store {
         }
 
         async function updateCrateMetadata({ target, registerFile }) {
+            let stat = await this.stat({ path: target });
+
             // we don't register the ro crate file
             if (registerFile && target === "ro-crate-metadata.json") return;
 
@@ -299,6 +301,10 @@ export class Store {
             let rootDataset = crate["@graph"].filter(
                 (e) => e["@id"] === rootDescriptor.about["@id"]
             )[0];
+            if (!rootDataset) {
+                console.log(`${this.itemPath}/ro-crate-metadata.json DOES NOT have a root dataset`);
+                return;
+            }
 
             // update the hasPart property if required
             if (!rootDataset.hasPart) {
@@ -308,6 +314,21 @@ export class Store {
                 if (!partReferenced.length) {
                     rootDataset.hasPart.push({ "@id": target });
                 }
+            }
+
+            // add a File entry to the crate is none there already
+            let fileEntry = crate["@graph"].filter((e) => e["@id"] === target);
+            if (!fileEntry.length) {
+                crate["@graph"].push({
+                    "@id": target,
+                    "@type": "File",
+                    name: target,
+                    contentSize: stat.ContentLength,
+                    dateModified: stat.LastModified,
+                    "@reverse": {
+                        hasPart: [{ "@id": "./" }],
+                    },
+                });
             }
             crate["@graph"] = crate["@graph"].map((e) => {
                 if (e["@id"] === rootDescriptor.about["@id"]) return rootDataset;

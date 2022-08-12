@@ -252,6 +252,9 @@ describe("Test storage actions", () => {
         let crate = await store.getJSON({ target: "ro-crate-metadata.json" });
         let rootDataset = crate["@graph"].filter((e) => e["@id"] === "./")[0];
         expect(rootDataset.hasPart).toEqual([{ "@id": "s3.js" }]);
+        let fileEntry = crate["@graph"].filter((e) => e["@id"] === "s3.js")[0];
+        expect(fileEntry.name).toEqual("s3.js");
+        expect(fileEntry["@reverse"]).toEqual({ hasPart: [{ "@id": "./" }] });
 
         await bucket.removeObjects({ prefix: itemPath });
         await remove(path.join("/tmp", file));
