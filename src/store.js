@@ -248,7 +248,14 @@ export class Store {
      * @param {Transfer[]} batch - an array of objects defining content to put into the store where the params
      *  are as for the single case. Uploads will be run 5 at a time.
      */
-    async put({ localPath, json, content, target, registerFile = true, batch = [] }) {
+    async put({
+        localPath = undefined,
+        json = undefined,
+        content = undefined,
+        target = undefined,
+        registerFile = true,
+        batch = [],
+    }) {
         if (!(await this.itemExists())) {
             throw new Error(`The item doesn't exist`);
         }
@@ -264,6 +271,34 @@ export class Store {
         } else {
             await transfer({ localPath, json, content, target, registerFile });
         }
+
+        // get the crate file
+        let crate = await this.getJSON({ target: "ro-crate-metadata.json" });
+        // console.log(crate["@graph"]);
+
+        // patch in any updates that need to be patched in
+        if (target) {
+            crate["@graph"] = await updateCrateMetadata({
+                graph: crate["@graph"],
+                target,
+                registerFile,
+            });
+        }
+        if (batch.length) {
+            for (let { target, registerFile } of batch) {
+                crate["@graph"] = await updateCrateMetadata({
+                    graph: crate["@graph"],
+                    target,
+                    registerFile,
+                });
+            }
+        }
+
+        // console.log("uploading crate", crate["@graph"]);
+        await this.bucket.upload({
+            target: this.roCrateFile,
+            json: crate,
+        });
 
         async function transfer({ localPath, json, content, target, registerFile }) {
             if (specialFiles.includes(target)) {
@@ -282,25 +317,18 @@ export class Store {
             let s3Target = nodePath.join(this.itemPath, target);
             await this.bucket.upload({ localPath, json, content, target: s3Target });
 
-            await updateCrateMetadata({ target, registerFile });
+            // await updateCrateMetadata({ target, registerFile });
         }
 
-        async function updateCrateMetadata({ target, registerFile }) {
-            let stat = await this.stat({ path: target });
-
+        async function updateCrateMetadata({ graph, target, registerFile }) {
             // we don't register the ro crate file
-            if (registerFile && target === "ro-crate-metadata.json") return;
-
-            // get the crate file
-            let crate = await this.getJSON({ target: "ro-crate-metadata.json" });
+            if (registerFile && target === "ro-crate-metadata.json") return graph;
 
             // find the root dataset
-            let rootDescriptor = crate["@graph"].filter(
+            let rootDescriptor = graph.filter(
                 (e) => e["@id"] === "ro-crate-metadata.json" && e["@type"] === "CreativeWork"
             )[0];
-            let rootDataset = crate["@graph"].filter(
-                (e) => e["@id"] === rootDescriptor.about["@id"]
-            )[0];
+            let rootDataset = graph.filter((e) => e["@id"] === rootDescriptor.about["@id"])[0];
             if (!rootDataset) {
                 console.log(`${this.itemPath}/ro-crate-metadata.json DOES NOT have a root dataset`);
                 return;
@@ -317,9 +345,10 @@ export class Store {
             }
 
             // add a File entry to the crate is none there already
-            let fileEntry = crate["@graph"].filter((e) => e["@id"] === target);
+            let fileEntry = graph.filter((e) => e["@id"] === target);
             if (!fileEntry.length) {
-                crate["@graph"].push({
+                let stat = await this.stat({ path: target });
+                graph.push({
                     "@id": target,
                     "@type": "File",
                     name: target,
@@ -330,14 +359,11 @@ export class Store {
                     },
                 });
             }
-            crate["@graph"] = crate["@graph"].map((e) => {
+            graph = graph.map((e) => {
                 if (e["@id"] === rootDescriptor.about["@id"]) return rootDataset;
                 return e;
             });
-            await this.bucket.upload({
-                target: this.roCrateFile,
-                json: crate,
-            });
+            return graph;
         }
     }
 

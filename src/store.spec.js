@@ -255,6 +255,7 @@ describe("Test storage actions", () => {
         let fileEntry = crate["@graph"].filter((e) => e["@id"] === "s3.js")[0];
         expect(fileEntry.name).toEqual("s3.js");
         expect(fileEntry["@reverse"]).toEqual({ hasPart: [{ "@id": "./" }] });
+        // console.log(JSON.stringify(crate["@graph"], null, 2));
 
         await bucket.removeObjects({ prefix: itemPath });
         await remove(path.join("/tmp", file));
@@ -274,19 +275,27 @@ describe("Test storage actions", () => {
         let crate = await store.getJSON({ target: "ro-crate-metadata.json" });
         let rootDataset = crate["@graph"].filter((e) => e["@id"] === "./")[0];
         expect(rootDataset.hasPart).toEqual([{ "@id": "s3.js" }]);
+        let fileEntry = crate["@graph"].filter((e) => e["@id"] === "s3.js")[0];
+        expect(fileEntry.contentSize).not.toHaveProperty("test");
 
         // add a property to its entry in the crate file
-        rootDataset.hasPart[0].name = "s3.js";
-        crate["@graph"][1] = rootDataset;
+        crate["@graph"] = crate["@graph"].map((e) => {
+            if (e["@id"] === "s3.js")
+                return {
+                    ...e,
+                    test: true,
+                };
+            return e;
+        });
         await store.put({ target: "ro-crate-metadata.json", json: crate });
 
         //  add it again
         await store.put({ localPath: path.join(__dirname, file), target: file });
 
-        // check that the exisiting entry in the crate file was not overwritten
+        // check that the existing entry in the crate file was not overwritten
         crate = await store.getJSON({ target: "ro-crate-metadata.json" });
         rootDataset = crate["@graph"].filter((e) => e["@id"] === "./")[0];
-        expect(rootDataset.hasPart).toEqual([{ "@id": "s3.js", name: "s3.js" }]);
+        expect(rootDataset.hasPart).toEqual([{ "@id": "s3.js" }]);
 
         await bucket.removeObjects({ prefix: itemPath });
         await remove(path.join("/tmp", file));
@@ -312,7 +321,7 @@ describe("Test storage actions", () => {
         await bucket.removeObjects({ prefix: itemPath });
         await remove(path.join("/tmp", file));
     });
-    test("it should be able to upload / download two files simultaneously", async () => {
+    test("it should be able to upload / download and register two files simultaneously", async () => {
         const itemPath = path.join("item", "t", "test");
         await bucket.removeObjects({ prefix: itemPath });
 
@@ -335,6 +344,20 @@ describe("Test storage actions", () => {
             "s3.spec.js",
         ]);
         expect(resources.length).toEqual(5);
+
+        let crate = await store.getJSON({ target: "ro-crate-metadata.json" });
+        let rootDataset = crate["@graph"].filter((e) => e["@id"] === "./")[0];
+        expect(rootDataset.hasPart.length).toEqual(2);
+        expect(rootDataset.hasPart).toEqual([
+            {
+                "@id": "s3.js",
+            },
+            {
+                "@id": "s3.spec.js",
+            },
+        ]);
+        let files = crate["@graph"].filter((e) => e["@type"] === "File");
+        expect(files.length).toEqual(2);
 
         await bucket.removeObjects({ prefix: itemPath });
         await remove(path.join("/tmp", file));
@@ -362,13 +385,18 @@ describe("Test storage actions", () => {
             ...batch,
             ...files.map((f) => ({
                 localPath: path.join(__dirname, "..", "dist", "cjs", f),
-                target: f,
+                target: path.join("dist", "cjs", f),
             })),
         ];
 
         await store.put({ batch });
+
+        let crate = await store.getJSON({ target: "ro-crate-metadata.json" });
+        let rootDataset = crate["@graph"].filter((e) => e["@id"] === "./")[0];
+        expect(rootDataset.hasPart.length).toEqual(batch.length);
+
         let resources = await store.listResources();
-        expect(resources.length).toEqual(12);
+        expect(resources.length).toEqual(14);
 
         await bucket.removeObjects({ prefix: store.getItemPath() });
     });
