@@ -83,7 +83,7 @@
   <body>
 
     <nav class="navbar" id="navbar">
-      <div class="navbar-heading" id="navbar-heading"><a href="index.html"><h2 class="navbar-heading-text">Home</h2></a></div><div class="search-box" id="search-box"><div class="search-box-input-container"><input class="search-box-input" type="text" placeholder="Search..." id="search-box-input" /><svg class="search-icon" alt="search-icon"><use xlink:href="#search-icon"></use></svg></div><div class="search-item-container" id="search-item-container"><ul class="search-item-ul" id="search-item-ul"></ul></div></div><div class="sidebar-main-content" id="sidebar-main-content"><div class="accordion collapsed" id="5434284" > <h3 class="accordion-heading">Classes<svg><use xlink:href="#down-icon"></use></svg></h3><ul class="accordion-content"><li class="accordion collapsed child" id=7627252><div class="accordion-heading child"><a href="Store.html">Store</a><svg><use xlink:href="#down-icon"></use></svg></div><ul class='methods accordion-content'><li data-type='method'><a href="Store.html#createItem">createItem</a></li><li data-type='method'><a href="Store.html#delete">delete</a></li><li data-type='method'><a href="Store.html#deleteItem">deleteItem</a></li><li data-type='method'><a href="Store.html#get">get</a></li><li data-type='method'><a href="Store.html#getItemIdentifier">getItemIdentifier</a></li><li data-type='method'><a href="Store.html#getItemInventory">getItemInventory</a></li><li data-type='method'><a href="Store.html#getItemPath">getItemPath</a></li><li data-type='method'><a href="Store.html#getJSON">getJSON</a></li><li data-type='method'><a href="Store.html#getPresignedUrl">getPresignedUrl</a></li><li data-type='method'><a href="Store.html#itemExists">itemExists</a></li><li data-type='method'><a href="Store.html#listResources">listResources</a></li><li data-type='method'><a href="Store.html#pathExists">pathExists</a></li><li data-type='method'><a href="Store.html#put">put</a></li><li data-type='method'><a href="Store.html#stat">stat</a></li></ul></li></ul> </div><div class="accordion collapsed" id="4761492" > <h3 class="accordion-heading">Global<svg><use xlink:href="#down-icon"></use></svg></h3><ul class="accordion-content"><li class="accordion-list" id=""><a href="global.html#Credentials">Credentials</a></li><li class="accordion-list" id=""><a href="global.html#Transfer">Transfer</a></li></ul> </div>
+      <div class="navbar-heading" id="navbar-heading"><a href="index.html"><h2 class="navbar-heading-text">Home</h2></a></div><div class="search-box" id="search-box"><div class="search-box-input-container"><input class="search-box-input" type="text" placeholder="Search..." id="search-box-input" /><svg class="search-icon" alt="search-icon"><use xlink:href="#search-icon"></use></svg></div><div class="search-item-container" id="search-item-container"><ul class="search-item-ul" id="search-item-ul"></ul></div></div><div class="sidebar-main-content" id="sidebar-main-content"><div class="accordion collapsed" id="5168254" > <h3 class="accordion-heading">Classes<svg><use xlink:href="#down-icon"></use></svg></h3><ul class="accordion-content"><li class="accordion collapsed child" id=2277893><div class="accordion-heading child"><a href="Store.html">Store</a><svg><use xlink:href="#down-icon"></use></svg></div><ul class='methods accordion-content'><li data-type='method'><a href="Store.html#createItem">createItem</a></li><li data-type='method'><a href="Store.html#delete">delete</a></li><li data-type='method'><a href="Store.html#deleteItem">deleteItem</a></li><li data-type='method'><a href="Store.html#get">get</a></li><li data-type='method'><a href="Store.html#getItemIdentifier">getItemIdentifier</a></li><li data-type='method'><a href="Store.html#getItemInventory">getItemInventory</a></li><li data-type='method'><a href="Store.html#getItemPath">getItemPath</a></li><li data-type='method'><a href="Store.html#getJSON">getJSON</a></li><li data-type='method'><a href="Store.html#getPresignedUrl">getPresignedUrl</a></li><li data-type='method'><a href="Store.html#itemExists">itemExists</a></li><li data-type='method'><a href="Store.html#listResources">listResources</a></li><li data-type='method'><a href="Store.html#pathExists">pathExists</a></li><li data-type='method'><a href="Store.html#put">put</a></li><li data-type='method'><a href="Store.html#stat">stat</a></li></ul></li></ul> </div><div class="accordion collapsed" id="3959727" > <h3 class="accordion-heading">Global<svg><use xlink:href="#down-icon"></use></svg></h3><ul class="accordion-content"><li class="accordion-list" id=""><a href="global.html#Credentials">Credentials</a></li><li class="accordion-list" id=""><a href="global.html#Transfer">Transfer</a></li></ul> </div>
       
 
     </nav>
@@ -359,7 +359,14 @@ export class Store {
      * @param {Transfer[]} batch - an array of objects defining content to put into the store where the params
      *  are as for the single case. Uploads will be run 5 at a time.
      */
-    async put({ localPath, json, content, target, registerFile = true, batch = [] }) {
+    async put({
+        localPath = undefined,
+        json = undefined,
+        content = undefined,
+        target = undefined,
+        registerFile = true,
+        batch = [],
+    }) {
         if (!(await this.itemExists())) {
             throw new Error(`The item doesn't exist`);
         }
@@ -375,6 +382,34 @@ export class Store {
         } else {
             await transfer({ localPath, json, content, target, registerFile });
         }
+
+        // get the crate file
+        let crate = await this.getJSON({ target: "ro-crate-metadata.json" });
+        // console.log(crate["@graph"]);
+
+        // patch in any updates that need to be patched in
+        if (target) {
+            crate["@graph"] = await updateCrateMetadata({
+                graph: crate["@graph"],
+                target,
+                registerFile,
+            });
+        }
+        if (batch.length) {
+            for (let { target, registerFile } of batch) {
+                crate["@graph"] = await updateCrateMetadata({
+                    graph: crate["@graph"],
+                    target,
+                    registerFile,
+                });
+            }
+        }
+
+        // console.log("uploading crate", crate["@graph"]);
+        await this.bucket.upload({
+            target: this.roCrateFile,
+            json: crate,
+        });
 
         async function transfer({ localPath, json, content, target, registerFile }) {
             if (specialFiles.includes(target)) {
@@ -393,25 +428,18 @@ export class Store {
             let s3Target = nodePath.join(this.itemPath, target);
             await this.bucket.upload({ localPath, json, content, target: s3Target });
 
-            await updateCrateMetadata({ target, registerFile });
+            // await updateCrateMetadata({ target, registerFile });
         }
 
-        async function updateCrateMetadata({ target, registerFile }) {
-            let stat = await this.stat({ path: target });
-
+        async function updateCrateMetadata({ graph, target, registerFile }) {
             // we don't register the ro crate file
-            if (registerFile &amp;&amp; target === "ro-crate-metadata.json") return;
-
-            // get the crate file
-            let crate = await this.getJSON({ target: "ro-crate-metadata.json" });
+            if (registerFile &amp;&amp; target === "ro-crate-metadata.json") return graph;
 
             // find the root dataset
-            let rootDescriptor = crate["@graph"].filter(
+            let rootDescriptor = graph.filter(
                 (e) => e["@id"] === "ro-crate-metadata.json" &amp;&amp; e["@type"] === "CreativeWork"
             )[0];
-            let rootDataset = crate["@graph"].filter(
-                (e) => e["@id"] === rootDescriptor.about["@id"]
-            )[0];
+            let rootDataset = graph.filter((e) => e["@id"] === rootDescriptor.about["@id"])[0];
             if (!rootDataset) {
                 console.log(`${this.itemPath}/ro-crate-metadata.json DOES NOT have a root dataset`);
                 return;
@@ -428,9 +456,10 @@ export class Store {
             }
 
             // add a File entry to the crate is none there already
-            let fileEntry = crate["@graph"].filter((e) => e["@id"] === target);
+            let fileEntry = graph.filter((e) => e["@id"] === target);
             if (!fileEntry.length) {
-                crate["@graph"].push({
+                let stat = await this.stat({ path: target });
+                graph.push({
                     "@id": target,
                     "@type": "File",
                     name: target,
@@ -441,14 +470,11 @@ export class Store {
                     },
                 });
             }
-            crate["@graph"] = crate["@graph"].map((e) => {
+            graph = graph.map((e) => {
                 if (e["@id"] === rootDescriptor.about["@id"]) return rootDataset;
                 return e;
             });
-            await this.bucket.upload({
-                target: this.roCrateFile,
-                json: crate,
-            });
+            return graph;
         }
     }
 

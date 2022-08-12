@@ -136,7 +136,7 @@ export class Store {
      * @param {Transfer[]} batch - an array of objects defining content to put into the store where the params
      *  are as for the single case. Uploads will be run 5 at a time.
      */
-    put({ localPath, json, content, target, registerFile, batch }: string): Promise<void>;
+    put({ localPath, json, content, target, registerFile, batch, }: string): Promise<void>;
     /**
      * Remove a file from an item in the storage
      * @param {String|Array.<String>} [target] - the target name for the file or array of target files; this will be set relative to the item path

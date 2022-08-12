@@ -386,7 +386,7 @@ var Store = /** @class */ (function () {
      *  are as for the single case. Uploads will be run 5 at a time.
      */
     Store.prototype.put = function (_a) {
-        var localPath = _a.localPath, json = _a.json, content = _a.content, target = _a.target, _b = _a.registerFile, registerFile = _b === void 0 ? true : _b, _c = _a.batch, batch = _c === void 0 ? [] : _c;
+        var _b = _a.localPath, localPath = _b === void 0 ? undefined : _b, _c = _a.json, json = _c === void 0 ? undefined : _c, _d = _a.content, content = _d === void 0 ? undefined : _d, _e = _a.target, target = _e === void 0 ? undefined : _e, _f = _a.registerFile, registerFile = _f === void 0 ? true : _f, _g = _a.batch, batch = _g === void 0 ? [] : _g;
         return __awaiter(this, void 0, void 0, function () {
             function transfer(_a) {
                 var localPath = _a.localPath, json = _a.json, content = _a.content, target = _a.target, registerFile = _a.registerFile;
@@ -421,31 +421,23 @@ var Store = /** @class */ (function () {
                                 return [4 /*yield*/, this.bucket.upload({ localPath: localPath, json: json, content: content, target: s3Target })];
                             case 8:
                                 _b.sent();
-                                return [4 /*yield*/, updateCrateMetadata({ target: target, registerFile: registerFile })];
-                            case 9:
-                                _b.sent();
                                 return [2 /*return*/];
                         }
                     });
                 });
             }
             function updateCrateMetadata(_a) {
-                var target = _a.target, registerFile = _a.registerFile;
+                var graph = _a.graph, target = _a.target, registerFile = _a.registerFile;
                 return __awaiter(this, void 0, void 0, function () {
-                    var stat, crate, rootDescriptor, rootDataset, partReferenced, fileEntry;
+                    var rootDescriptor, rootDataset, partReferenced, fileEntry, stat;
                     return __generator(this, function (_b) {
                         switch (_b.label) {
-                            case 0: return [4 /*yield*/, this.stat({ path: target })];
-                            case 1:
-                                stat = _b.sent();
+                            case 0:
                                 // we don't register the ro crate file
                                 if (registerFile && target === "ro-crate-metadata.json")
-                                    return [2 /*return*/];
-                                return [4 /*yield*/, this.getJSON({ target: "ro-crate-metadata.json" })];
-                            case 2:
-                                crate = _b.sent();
-                                rootDescriptor = crate["@graph"].filter(function (e) { return e["@id"] === "ro-crate-metadata.json" && e["@type"] === "CreativeWork"; })[0];
-                                rootDataset = crate["@graph"].filter(function (e) { return e["@id"] === rootDescriptor.about["@id"]; })[0];
+                                    return [2 /*return*/, graph];
+                                rootDescriptor = graph.filter(function (e) { return e["@id"] === "ro-crate-metadata.json" && e["@type"] === "CreativeWork"; })[0];
+                                rootDataset = graph.filter(function (e) { return e["@id"] === rootDescriptor.about["@id"]; })[0];
                                 if (!rootDataset) {
                                     console.log("".concat(this.itemPath, "/ro-crate-metadata.json DOES NOT have a root dataset"));
                                     return [2 /*return*/];
@@ -460,41 +452,39 @@ var Store = /** @class */ (function () {
                                         rootDataset.hasPart.push({ "@id": target });
                                     }
                                 }
-                                fileEntry = crate["@graph"].filter(function (e) { return e["@id"] === target; });
-                                if (!fileEntry.length) {
-                                    crate["@graph"].push({
-                                        "@id": target,
-                                        "@type": "File",
-                                        name: target,
-                                        contentSize: stat.ContentLength,
-                                        dateModified: stat.LastModified,
-                                        "@reverse": {
-                                            hasPart: [{ "@id": "./" }],
-                                        },
-                                    });
-                                }
-                                crate["@graph"] = crate["@graph"].map(function (e) {
+                                fileEntry = graph.filter(function (e) { return e["@id"] === target; });
+                                if (!!fileEntry.length) return [3 /*break*/, 2];
+                                return [4 /*yield*/, this.stat({ path: target })];
+                            case 1:
+                                stat = _b.sent();
+                                graph.push({
+                                    "@id": target,
+                                    "@type": "File",
+                                    name: target,
+                                    contentSize: stat.ContentLength,
+                                    dateModified: stat.LastModified,
+                                    "@reverse": {
+                                        hasPart: [{ "@id": "./" }],
+                                    },
+                                });
+                                _b.label = 2;
+                            case 2:
+                                graph = graph.map(function (e) {
                                     if (e["@id"] === rootDescriptor.about["@id"])
                                         return rootDataset;
                                     return e;
                                 });
-                                return [4 /*yield*/, this.bucket.upload({
-                                        target: this.roCrateFile,
-                                        json: crate,
-                                    })];
-                            case 3:
-                                _b.sent();
-                                return [2 /*return*/];
+                                return [2 /*return*/, graph];
                         }
                     });
                 });
             }
-            var chunks, _i, chunks_1, chunk_1, transfers;
-            return __generator(this, function (_d) {
-                switch (_d.label) {
+            var chunks, _i, chunks_1, chunk_1, transfers, crate, _h, _j, _k, batch_1, _l, target_1, registerFile_1, _m, _o;
+            return __generator(this, function (_p) {
+                switch (_p.label) {
                     case 0: return [4 /*yield*/, this.itemExists()];
                     case 1:
-                        if (!(_d.sent())) {
+                        if (!(_p.sent())) {
                             throw new Error("The item doesn't exist");
                         }
                         transfer = transfer.bind(this);
@@ -502,24 +492,67 @@ var Store = /** @class */ (function () {
                         if (!batch.length) return [3 /*break*/, 6];
                         chunks = chunk(batch, 5);
                         _i = 0, chunks_1 = chunks;
-                        _d.label = 2;
+                        _p.label = 2;
                     case 2:
                         if (!(_i < chunks_1.length)) return [3 /*break*/, 5];
                         chunk_1 = chunks_1[_i];
                         transfers = chunk_1.map(function (t) { return transfer(t); });
                         return [4 /*yield*/, Promise.all(transfers)];
                     case 3:
-                        _d.sent();
-                        _d.label = 4;
+                        _p.sent();
+                        _p.label = 4;
                     case 4:
                         _i++;
                         return [3 /*break*/, 2];
                     case 5: return [3 /*break*/, 8];
                     case 6: return [4 /*yield*/, transfer({ localPath: localPath, json: json, content: content, target: target, registerFile: registerFile })];
                     case 7:
-                        _d.sent();
-                        _d.label = 8;
-                    case 8: return [2 /*return*/];
+                        _p.sent();
+                        _p.label = 8;
+                    case 8: return [4 /*yield*/, this.getJSON({ target: "ro-crate-metadata.json" })];
+                    case 9:
+                        crate = _p.sent();
+                        if (!target) return [3 /*break*/, 11];
+                        _h = crate;
+                        _j = "@graph";
+                        return [4 /*yield*/, updateCrateMetadata({
+                                graph: crate["@graph"],
+                                target: target,
+                                registerFile: registerFile,
+                            })];
+                    case 10:
+                        _h[_j] = _p.sent();
+                        _p.label = 11;
+                    case 11:
+                        if (!batch.length) return [3 /*break*/, 15];
+                        _k = 0, batch_1 = batch;
+                        _p.label = 12;
+                    case 12:
+                        if (!(_k < batch_1.length)) return [3 /*break*/, 15];
+                        _l = batch_1[_k], target_1 = _l.target, registerFile_1 = _l.registerFile;
+                        _m = crate;
+                        _o = "@graph";
+                        return [4 /*yield*/, updateCrateMetadata({
+                                graph: crate["@graph"],
+                                target: target_1,
+                                registerFile: registerFile_1,
+                            })];
+                    case 13:
+                        _m[_o] = _p.sent();
+                        _p.label = 14;
+                    case 14:
+                        _k++;
+                        return [3 /*break*/, 12];
+                    case 15: 
+                    // console.log("uploading crate", crate["@graph"]);
+                    return [4 /*yield*/, this.bucket.upload({
+                            target: this.roCrateFile,
+                            json: crate,
+                        })];
+                    case 16:
+                        // console.log("uploading crate", crate["@graph"]);
+                        _p.sent();
+                        return [2 /*return*/];
                 }
             });
         });
