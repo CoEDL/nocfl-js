@@ -179,6 +179,7 @@ var Store = /** @class */ (function () {
                 {
                     "@id": "./",
                     "@type": ["Dataset"],
+                    name: "My Research Object Crate",
                 },
             ],
         };
@@ -431,18 +432,24 @@ var Store = /** @class */ (function () {
             function updateCrateMetadata(_a) {
                 var target = _a.target, registerFile = _a.registerFile;
                 return __awaiter(this, void 0, void 0, function () {
-                    var crate, rootDescriptor, rootDataset, partReferenced;
+                    var stat, crate, rootDescriptor, rootDataset, partReferenced, fileEntry;
                     return __generator(this, function (_b) {
                         switch (_b.label) {
-                            case 0:
+                            case 0: return [4 /*yield*/, this.stat({ path: target })];
+                            case 1:
+                                stat = _b.sent();
                                 // we don't register the ro crate file
                                 if (registerFile && target === "ro-crate-metadata.json")
                                     return [2 /*return*/];
                                 return [4 /*yield*/, this.getJSON({ target: "ro-crate-metadata.json" })];
-                            case 1:
+                            case 2:
                                 crate = _b.sent();
                                 rootDescriptor = crate["@graph"].filter(function (e) { return e["@id"] === "ro-crate-metadata.json" && e["@type"] === "CreativeWork"; })[0];
                                 rootDataset = crate["@graph"].filter(function (e) { return e["@id"] === rootDescriptor.about["@id"]; })[0];
+                                if (!rootDataset) {
+                                    console.log("".concat(this.itemPath, "/ro-crate-metadata.json DOES NOT have a root dataset"));
+                                    return [2 /*return*/];
+                                }
                                 // update the hasPart property if required
                                 if (!rootDataset.hasPart) {
                                     rootDataset.hasPart = [{ "@id": target }];
@@ -453,6 +460,19 @@ var Store = /** @class */ (function () {
                                         rootDataset.hasPart.push({ "@id": target });
                                     }
                                 }
+                                fileEntry = crate["@graph"].filter(function (e) { return e["@id"] === target; });
+                                if (!fileEntry.length) {
+                                    crate["@graph"].push({
+                                        "@id": target,
+                                        "@type": "File",
+                                        name: target,
+                                        contentSize: stat.ContentLength,
+                                        dateModified: stat.LastModified,
+                                        "@reverse": {
+                                            hasPart: [{ "@id": "./" }],
+                                        },
+                                    });
+                                }
                                 crate["@graph"] = crate["@graph"].map(function (e) {
                                     if (e["@id"] === rootDescriptor.about["@id"])
                                         return rootDataset;
@@ -462,7 +482,7 @@ var Store = /** @class */ (function () {
                                         target: this.roCrateFile,
                                         json: crate,
                                     })];
-                            case 2:
+                            case 3:
                                 _b.sent();
                                 return [2 /*return*/];
                         }

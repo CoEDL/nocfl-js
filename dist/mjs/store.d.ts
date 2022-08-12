@@ -62,9 +62,11 @@ export class Store {
                 "@id": string;
             };
             identifier: string;
+            name?: undefined;
         } | {
             "@id": string;
             "@type": string[];
+            name: string;
             conformsTo?: undefined;
             about?: undefined;
             identifier?: undefined;
