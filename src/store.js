@@ -113,6 +113,7 @@ export class Store {
                 {
                     "@id": "./",
                     "@type": ["Dataset"],
+                    name: "My Research Object Crate",
                 },
             ],
         };
