@@ -5,6 +5,7 @@
     "main": "./dist/cjs/index.js",
     "type": "module",
     "scripts": {
+        "develop": "npm run test:watch",
         "build": "rm -rf dist/* && concurrently 'npm:build:cjs' 'npm:build:mjs' && npm run create-package && npm run generate-docs",
         "build:cjs": "tsc -p tsconfig-es5.json",
         "build:mjs": "tsc -p tsconfig-mjs.json",
