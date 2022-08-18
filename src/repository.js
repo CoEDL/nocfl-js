@@ -3,6 +3,17 @@ import { Store } from "./store.js";
 import EventEmitter from "events";
 import { isString, isUndefined } from "lodash";
 
+/**
+ * An AWS Credentials Object
+ * @typedef {Object} Credentials
+ * @property{string} bucket - the AWS bucket to connect to
+ * @property {string} accessKeyId - the AWS accessKey
+ * @property {string} secretAccessKey - the AWS secretAccessKey
+ * @property {string} region - the AWS region
+ * @property {string} [endpoint] - the endpoint URL when using an S3 like service (e.g. Minio)
+ * @property {boolean} [forcePathStyle] - whether to force path style endpoints (required for Minio and the like)
+ */
+
 /** Class representing an S3 repository. */
 export class Repository extends EventEmitter {
     /**
