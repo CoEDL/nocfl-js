@@ -14,6 +14,7 @@ The name of this library came from [Peter Sefton](https://github.com/ptsefton).
 
 This library has extensive tests. To run them: `npm run test:watch`. You will need docker as this
 command will start a local S3 service called [MinIO](https://hub.docker.com/r/minio/minio/).
+(`npm run develop` exists as a more semantically meaningful shortcut for test:watch)
 
 # Repository and Documentation
 
@@ -32,9 +33,9 @@ skeleton [Research Object Crate - RO-Crate](https://www.researchobject.org/ro-cr
 
 When creating a new item you need to
 
+-   pass in a domain name
 -   pass in the primary class of the data type (e.g. Collection, Item, Person etc)
 -   pass in the item identifier
--   optionally, you can pass in a domain name
 
 Both `id` and `className` must start with letter (upper or lowercase) and be followed by any number
 of letters (upper and lower), numbers and underscore. Any other characters will not be accepted and
@@ -46,16 +47,17 @@ Path creation from the identifier is illustrated following:
 
 Examples:
 
--   class: Collection, id: test -> `(bucket)/collection/t/test (splay = default = 1)`
--   class: Item, id: test -> `(bucket)/item/t/test (splay = default = 1)`
 -   domain: example.com, class: Item, id: test ->
     `(bucket)/example.com/item/t/test (splay = default = 1)`
 -   domain: eXamPLe.cOm, class: Item, id: test ->
     `(bucket)/example.com/item/t/test (splay = default = 1)`
 
--   class: Collection, id: test, splay: 2 -> `(bucket)/collection/te/test`
--   class: Collection, id: test, splay: 4 -> `(bucket)/collection/test/test`
--   class: Collection, id: test, splay: 10 -> `(bucket)/collection/test/test`
+-   domain: example.com, class: Collection, id: test, splay: 2 ->
+    `(bucket)/example.com/collection/te/test`
+-   domain: example.com, class: Collection, id: test, splay: 4 ->
+    `(bucket)/example.com/collection/test/test`
+-   domain: example.com, class: Collection, id: test, splay: 10 ->
+    `(bucket)/example.com/collection/test/test`
 
 ## Example usage
 
