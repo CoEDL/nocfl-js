@@ -127,7 +127,7 @@ export class Store {
     async itemExists() {
         if (
             await this.bucket.pathExists({
-                path: nodePath.join(this.itemPath, "nocfl.inventory.json"),
+                path: nodePath.join(this.itemPath, this.identifierFile),
             })
         ) {
             return true;
