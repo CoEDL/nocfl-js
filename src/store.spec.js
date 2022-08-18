@@ -16,11 +16,12 @@ describe("Test storage actions", () => {
         region: "us-west-1",
     };
     const bucket = new Bucket(credentials);
+    const domain = "nyingarn.net";
 
     afterAll(async () => {});
 
     test("it should be able to init a connection to the storage", () => {
-        const store = new Store({ className: "item", id: "test", credentials, bucket });
+        const store = new Store({ domain, className: "item", id: "test", credentials, bucket });
         expect(store.bucket).toBeDefined;
     });
     test("it should not be able to init a connection to the storage", () => {
@@ -31,33 +32,33 @@ describe("Test storage actions", () => {
         }
     });
     test("it should be able to init a connection to the storage", () => {
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         expect(store.credentials).toEqual(credentials);
     });
     test("it fail to init a connection - missing classname", () => {
         try {
-            new Store({ id: "test", credentials });
+            new Store({ domain, id: "test", credentials });
         } catch (error) {
             expect(error.message).toEqual(`Missing required property: 'className'`);
         }
     });
     test("it fail to init a connection - missing id", () => {
         try {
-            new Store({ className: "test", credentials });
+            new Store({ domain, className: "test", credentials });
         } catch (error) {
             expect(error.message).toEqual(`Missing required property: 'id'`);
         }
     });
     test("it fail to init a connection - missing credentials", () => {
         try {
-            new Store({ className: "test", id: "test" });
+            new Store({ domain, className: "test", id: "test" });
         } catch (error) {
             expect(error.message).toEqual(`Missing required property: 'credentials'`);
         }
     });
     test("it should not accept the identifier - disallowed characters", () => {
         try {
-            new Store({ className: "test", id: "test&", credentials });
+            new Store({ domain, className: "test", id: "test&", credentials });
         } catch (error) {
             expect(error.message).toEqual(
                 `The identifier doesn't match the allowed format: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$`
@@ -66,7 +67,7 @@ describe("Test storage actions", () => {
     });
     test("it should not accept the className - disallowed characters", () => {
         try {
-            new Store({ className: "test&", id: "test", credentials });
+            new Store({ domain, className: "test&", id: "test", credentials });
         } catch (error) {
             expect(error.message).toEqual(
                 `The className doesn't match the allowed format: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$`
@@ -74,42 +75,41 @@ describe("Test storage actions", () => {
         }
     });
     test("it should be able to get the item path", () => {
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         let itemPath = store.getItemPath();
-        expect(itemPath).toEqual("item/t/test");
+        expect(itemPath).toEqual("nyingarn.net/item/t/test");
     });
     test("it should be able to get the item identifier", async () => {
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
         let identifier = await store.getItemIdentifier();
         expect(identifier.id).toEqual("test");
         expect(identifier.className).toEqual("item");
-        expect(identifier.itemPath).toEqual("item/t/test");
-        await bucket.removeObjects({ prefix: path.join("item", "t", "test") });
+        expect(identifier.itemPath).toEqual("nyingarn.net/item/t/test");
+        await bucket.removeObjects({ prefix: store.getItemPath() });
     });
     test("it should be able to get the item identifier", async () => {
         await bucket.removeObjects({ prefix: path.join("item", "t", "test") });
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
         let inventory = await store.getItemInventory();
         expect(inventory.content["ro-crate-metadata.json"]).toBeDefined;
-        await bucket.removeObjects({ prefix: path.join("item", "t", "test") });
+        await bucket.removeObjects({ prefix: store.getItemPath() });
     });
     test("it should be able to create items with path splay = 2", () => {
-        const store = new Store({ className: "item", id: "test", credentials, splay: 2 });
+        const store = new Store({ domain, className: "item", id: "test", credentials, splay: 2 });
         let itemPath = store.getItemPath();
-        expect(itemPath).toEqual("item/te/test");
+        expect(itemPath).toEqual("nyingarn.net/item/te/test");
     });
     test("it should be able to create items with path splay = 10", () => {
-        const store = new Store({ className: "item", id: "test", credentials, splay: 10 });
+        const store = new Store({ domain, className: "item", id: "test", credentials, splay: 10 });
         let itemPath = store.getItemPath();
-        expect(itemPath).toEqual("item/test/test");
+        expect(itemPath).toEqual("nyingarn.net/item/test/test");
     });
     test("it should be able to create a new item", async () => {
         const itemPath = path.join("item", "t", "test");
-        await bucket.removeObjects({ prefix: itemPath });
 
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
         let resources = await store.listResources();
         expect(resources.length).toEqual(3);
@@ -123,11 +123,10 @@ describe("Test storage actions", () => {
             "nocfl.inventory.json"
         );
 
-        await bucket.removeObjects({ prefix: itemPath });
+        await bucket.removeObjects({ prefix: "nyingarn.net/item/t/test" });
     });
     test("it should fail to create a new item when one already exists", async () => {
-        const itemPath = path.join("item", "t", "test");
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
         try {
             await store.createItem();
@@ -135,11 +134,10 @@ describe("Test storage actions", () => {
             expect(error.message).toEqual(`An item with that identifier already exists`);
         }
 
-        await bucket.removeObjects({ prefix: itemPath });
+        await bucket.removeObjects({ prefix: store.getItemPath() });
     });
     test("it should fail trying to overwrite an internal, special file", async () => {
-        const itemPath = path.join("item", "t", "test");
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
         try {
             await store.put({ json: {}, target: "nocfl.inventory.json" });
@@ -157,13 +155,10 @@ describe("Test storage actions", () => {
             );
         }
 
-        await bucket.removeObjects({ prefix: itemPath });
+        await bucket.removeObjects({ prefix: store.getItemPath() });
     });
     test("it should fail to upload data if the item has not been created yet", async () => {
-        const itemPath = path.join("item", "t", "test");
-        await bucket.removeObjects({ prefix: itemPath });
-
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         const file = "s3.js";
         try {
             await store.put({ target: file, localPath: path.join(__dirname, file) });
@@ -175,28 +170,9 @@ describe("Test storage actions", () => {
         await store.put({ target: file, localPath: path.join(__dirname, file) });
         let resources = await store.listResources();
         expect(resources.length).toEqual(4);
-
-        await bucket.removeObjects({ prefix: itemPath });
-    });
-    test("test file creation in item path without domain", async () => {
-        const itemPath = path.join("item", "t", "test");
-        await bucket.removeObjects({ prefix: itemPath });
-
-        const file = "s3.js";
-        const store = new Store({ className: "item", id: "test", credentials });
-        await store.createItem();
-        await store.put({ target: file, localPath: path.join(__dirname, file) });
-
-        let resources = await store.listResources();
-        expect(getFile({ resources, file }).Key).toEqual(file);
-
-        await bucket.removeObjects({ prefix: itemPath });
+        await bucket.removeObjects({ prefix: store.getItemPath() });
     });
     test("file creation in item path with domain", async () => {
-        const domain = "paradisec.org.au";
-        const itemPath = path.join(domain, "item", "t", "test");
-        await bucket.removeObjects({ prefix: itemPath });
-
         const file = "s3.js";
         const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
@@ -205,26 +181,22 @@ describe("Test storage actions", () => {
         let resources = await store.listResources();
         expect(getFile({ resources, file }).Key).toEqual(file);
 
-        await bucket.removeObjects({ prefix: itemPath });
+        await bucket.removeObjects({ prefix: store.getItemPath() });
     });
     test("it should be able to see if an item exists or not", async () => {
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         let pathExists = await store.itemExists();
         expect(pathExists).toBeFalse;
 
-        let itemPath = path.join("item", "t", "test");
         await store.createItem();
         pathExists = await store.itemExists();
         expect(pathExists).toBeTrue;
 
-        await bucket.removeObjects({ prefix: itemPath });
+        await bucket.removeObjects({ prefix: store.getItemPath() });
     });
     test("it should be able to upload / download a file", async () => {
-        const itemPath = path.join("item", "t", "test");
-        await bucket.removeObjects({ prefix: itemPath });
-
         const file = "s3.js";
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
 
         await store.put({ localPath: path.join(__dirname, file), target: file });
@@ -236,15 +208,12 @@ describe("Test storage actions", () => {
         expect(await pathExists(path.join("/tmp", file))).toBe(true);
         await remove(path.join("/tmp", file));
 
-        await bucket.removeObjects({ prefix: itemPath });
+        await bucket.removeObjects({ prefix: store.getItemPath() });
         await remove(path.join("/tmp", file));
     });
     test("it should be able to upload a file and register it in the crate file", async () => {
-        const itemPath = path.join("item", "t", "test");
-        await bucket.removeObjects({ prefix: itemPath });
-
         const file = "s3.js";
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
 
         await store.put({ localPath: path.join(__dirname, file), target: file });
@@ -257,15 +226,12 @@ describe("Test storage actions", () => {
         expect(fileEntry["@reverse"]).toEqual({ hasPart: [{ "@id": "./" }] });
         // console.log(JSON.stringify(crate["@graph"], null, 2));
 
-        await bucket.removeObjects({ prefix: itemPath });
+        await bucket.removeObjects({ prefix: store.getItemPath() });
         await remove(path.join("/tmp", file));
     });
     test("it should be able to upload a file, register it and not overwrite an existing entry", async () => {
-        const itemPath = path.join("item", "t", "test");
-        await bucket.removeObjects({ prefix: itemPath });
-
         const file = "s3.js";
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
 
         // add a file
@@ -297,15 +263,12 @@ describe("Test storage actions", () => {
         rootDataset = crate["@graph"].filter((e) => e["@id"] === "./")[0];
         expect(rootDataset.hasPart).toEqual([{ "@id": "s3.js" }]);
 
-        await bucket.removeObjects({ prefix: itemPath });
+        await bucket.removeObjects({ prefix: store.getItemPath() });
         await remove(path.join("/tmp", file));
     });
     test("it should be able to upload a file and NOT register it in the crate file", async () => {
-        const itemPath = path.join("item", "t", "test");
-        await bucket.removeObjects({ prefix: itemPath });
-
         const file = "s3.js";
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
 
         await store.put({
@@ -318,15 +281,12 @@ describe("Test storage actions", () => {
         let rootDataset = crate["@graph"].filter((e) => e["@id"] === "./")[0];
         expect(rootDataset.hasPart).not.toBeDefined;
 
-        await bucket.removeObjects({ prefix: itemPath });
+        await bucket.removeObjects({ prefix: store.getItemPath() });
         await remove(path.join("/tmp", file));
     });
     test("it should be able to upload / download and register two files simultaneously", async () => {
-        const itemPath = path.join("item", "t", "test");
-        await bucket.removeObjects({ prefix: itemPath });
-
         const file = "s3.js";
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
 
         let batch = [
@@ -359,14 +319,11 @@ describe("Test storage actions", () => {
         let files = crate["@graph"].filter((e) => e["@type"] === "File");
         expect(files.length).toEqual(2);
 
-        await bucket.removeObjects({ prefix: itemPath });
+        await bucket.removeObjects({ prefix: store.getItemPath() });
         await remove(path.join("/tmp", file));
     });
     test("it should be able to upload / download 12 files in chunks of 5", async () => {
-        const itemPath = path.join("item", "t", "test");
-        await bucket.removeObjects({ prefix: itemPath });
-
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
 
         let files = ["s3.spec.js", "store.js", "store.spec.js", "index.js"];
@@ -401,11 +358,8 @@ describe("Test storage actions", () => {
         await bucket.removeObjects({ prefix: store.getItemPath() });
     });
     test("it should be able to upload / download a file to a subpath (not just the root)", async () => {
-        const itemPath = path.join("item", "t", "test");
-        await bucket.removeObjects({ prefix: itemPath });
-
         const file = "s3.js";
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
 
         await store.put({ localPath: path.join(__dirname, file), target: `some/path/to/${file}` });
@@ -413,13 +367,12 @@ describe("Test storage actions", () => {
         expect(resources.length).toEqual(4);
         expect(getFile({ resources, file }).Key).toEqual("some/path/to/s3.js");
 
-        await bucket.removeObjects({ prefix: itemPath });
+        await bucket.removeObjects({ prefix: store.getItemPath() });
         await remove(path.join("/tmp", file));
     });
     test("it should be able to upload / download json data", async () => {
-        const itemPath = path.join("item", "t", "test");
         const file = "data.json";
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
 
         await store.put({ json: { data: true }, target: file });
@@ -427,15 +380,12 @@ describe("Test storage actions", () => {
         let data = await readJSON(path.join("/tmp", file));
         expect(data).toEqual({ data: true });
 
-        await bucket.removeObjects({ prefix: itemPath });
+        await bucket.removeObjects({ prefix: store.getItemPath() });
         await remove(path.join("/tmp", file));
     });
     test("it should be able to upload / download string content", async () => {
-        const itemPath = path.join("item", "t", "test");
-        await bucket.removeObjects({ prefix: itemPath });
-
         const file = "data.txt";
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
 
         await store.put({ content: "some text from somewhere", target: file });
@@ -443,45 +393,36 @@ describe("Test storage actions", () => {
         let data = await readFile(path.join("/tmp", file));
         expect(data.toString()).toEqual("some text from somewhere");
 
-        await bucket.removeObjects({ prefix: itemPath });
+        await bucket.removeObjects({ prefix: store.getItemPath() });
         await remove(path.join("/tmp", file));
     });
     test("it should be able to download string content directly", async () => {
-        const itemPath = path.join("item", "t", "test");
-        await bucket.removeObjects({ prefix: itemPath });
-
         const file = "data.txt";
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
 
         await store.put({ content: "some text from somewhere", target: file });
         let data = await store.get({ target: file });
         expect(data).toEqual("some text from somewhere");
 
-        await bucket.removeObjects({ prefix: itemPath });
+        await bucket.removeObjects({ prefix: store.getItemPath() });
         await remove(path.join("/tmp", file));
     });
     test("it should be able to download json content directly", async () => {
-        const itemPath = path.join("item", "t", "test");
-        await bucket.removeObjects({ prefix: itemPath });
-
         const file = "data.json";
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
 
         await store.put({ json: { data: true }, target: file });
         let data = await store.get({ target: file });
         expect(JSON.parse(data)).toEqual({ data: true });
 
-        await bucket.removeObjects({ prefix: itemPath });
+        await bucket.removeObjects({ prefix: store.getItemPath() });
         await remove(path.join("/tmp", file));
     });
     test("it should be able to remove a file from an item", async () => {
-        const itemPath = path.join("item", "t", "test");
-        await bucket.removeObjects({ prefix: itemPath });
-
         const file = "s3.js";
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
 
         await store.put({ localPath: path.join(__dirname, file), target: file });
@@ -494,14 +435,11 @@ describe("Test storage actions", () => {
         expect(resources.length).toEqual(3);
         expect(getFile({ resources, file })).toBe(undefined);
 
-        await bucket.removeObjects({ prefix: itemPath });
+        await bucket.removeObjects({ prefix: store.getItemPath() });
         await remove(path.join("/tmp", file));
     });
     test("it should be able to remove multiple files from an item", async () => {
-        const itemPath = path.join("item", "t", "test");
-        await bucket.removeObjects({ prefix: itemPath });
-
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
 
         await store.put({ localPath: path.join(__dirname, "s3.js"), target: "s3.js" });
@@ -514,13 +452,10 @@ describe("Test storage actions", () => {
         resources = await store.listResources();
         expect(resources.length).toEqual(4);
 
-        await bucket.removeObjects({ prefix: itemPath });
+        await bucket.removeObjects({ prefix: store.getItemPath() });
     });
     test("it should be able to remove files by prefix", async () => {
-        const itemPath = path.join("item", "t", "test");
-        await bucket.removeObjects({ prefix: itemPath });
-
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
 
         await store.put({ localPath: path.join(__dirname, "s3.js"), target: "s3.js" });
@@ -533,13 +468,10 @@ describe("Test storage actions", () => {
         resources = await store.listResources();
         expect(resources.length).toEqual(4);
 
-        await bucket.removeObjects({ prefix: itemPath });
+        await bucket.removeObjects({ prefix: store.getItemPath() });
     });
     test("it should be able to remove the whole item", async () => {
-        const itemPath = path.join("item", "t", "test");
-        await bucket.removeObjects({ prefix: itemPath });
-
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
 
         await store.put({ localPath: path.join(__dirname, "s3.js"), target: "s3.js" });
@@ -554,23 +486,16 @@ describe("Test storage actions", () => {
         await store.deleteItem({ prefix: store.getItemPath() });
         let exists = await store.itemExists();
         expect(exists).toBe(false);
-
-        await bucket.removeObjects({ prefix: itemPath });
     });
     test("it should be able to remove the whole item and not any others", async () => {
         // delete item 1 and check item 2 is ok
         //   item1 = test, item2 = test2
-        const itemPath1 = path.join("item", "t", "test");
-        const itemPath2 = path.join("item", "t", "test2");
-        await bucket.removeObjects({ prefix: itemPath1 });
-        await bucket.removeObjects({ prefix: itemPath2 });
-
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
         let resources = await store.listResources();
         expect(resources.length).toEqual(3);
 
-        const store2 = new Store({ className: "item", id: "test2", credentials });
+        const store2 = new Store({ domain, className: "item", id: "test2", credentials });
         await store2.createItem();
         let resources2 = await store2.listResources();
         expect(resources2.length).toEqual(3);
@@ -586,14 +511,11 @@ describe("Test storage actions", () => {
         exists = await store.itemExists();
         expect(exists).toBe(false);
 
-        await bucket.removeObjects({ prefix: itemPath1 });
-        await bucket.removeObjects({ prefix: itemPath2 });
+        await bucket.removeObjects({ prefix: store.getItemPath() });
+        await bucket.removeObjects({ prefix: store2.getItemPath() });
     });
     test("it should fail with wrong argument type", async () => {
-        const itemPath = path.join("item", "t", "test");
-        await bucket.removeObjects({ prefix: itemPath });
-
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
 
         try {
@@ -607,13 +529,10 @@ describe("Test storage actions", () => {
             expect(error.message).toBe("target must be a string or array of strings");
         }
 
-        await bucket.removeObjects({ prefix: itemPath });
+        await bucket.removeObjects({ prefix: store.getItemPath() });
     });
     test("it should fail with wrong argument type", async () => {
-        const itemPath = path.join("item", "t", "test");
-        await bucket.removeObjects({ prefix: itemPath });
-
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
 
         try {
@@ -627,13 +546,10 @@ describe("Test storage actions", () => {
             expect(error.message).toBe("target must be a string or array of strings");
         }
 
-        await bucket.removeObjects({ prefix: itemPath });
+        await bucket.removeObjects({ prefix: store.getItemPath() });
     });
     test("it should fail to delete special files", async () => {
-        const itemPath = path.join("item", "t", "test");
-        await bucket.removeObjects({ prefix: itemPath });
-
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
 
         try {
@@ -643,29 +559,23 @@ describe("Test storage actions", () => {
                 `You can't delete a file called 'nocfl.inventory.json as that's a special file used by the system`
             );
         }
-        await bucket.removeObjects({ prefix: itemPath });
+        await bucket.removeObjects({ prefix: store.getItemPath() });
     });
     test("it should be able to get a list of files in the item", async () => {
-        const itemPath = path.join("item", "t", "test");
-        await bucket.removeObjects({ prefix: itemPath });
-
         const file = "s3.js";
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
 
         await store.put({ localPath: path.join(__dirname, file), target: file });
         let resources = await store.listResources();
         expect(resources.length).toEqual(4);
-        resources.forEach((r) => expect(r.Key).not.toMatch(itemPath));
+        resources.forEach((r) => expect(r.Key).not.toMatch(store.getItemPath()));
 
-        await bucket.removeObjects({ prefix: itemPath });
+        await bucket.removeObjects({ prefix: store.getItemPath() });
     });
     test("it should be able to verify a file path exists", async () => {
-        const itemPath = path.join("item", "t", "test");
-        await bucket.removeObjects({ prefix: itemPath });
-
         const file = "s3.js";
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
 
         await store.put({ localPath: path.join(__dirname, file), target: file });
@@ -676,14 +586,11 @@ describe("Test storage actions", () => {
         exists = await store.pathExists({ path: "other.json" });
         expect(exists).toBe(false);
 
-        await bucket.removeObjects({ prefix: itemPath });
+        await bucket.removeObjects({ prefix: store.getItemPath() });
     });
     test("it should be able to return file stat", async () => {
-        const itemPath = path.join("item", "t", "test");
-        await bucket.removeObjects({ prefix: itemPath });
-
         const file = "s3.js";
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
 
         await store.put({ localPath: path.join(__dirname, file), target: file });
@@ -692,22 +599,19 @@ describe("Test storage actions", () => {
         let fstat = await fileStat(path.join(__dirname, file));
         expect(stat.ContentLength).toEqual(fstat.size);
 
-        await bucket.removeObjects({ prefix: itemPath });
+        await bucket.removeObjects({ prefix: store.getItemPath() });
     });
     test("it should be able to get a presigned link to a file", async () => {
-        const itemPath = path.join("item", "t", "test");
-        await bucket.removeObjects({ prefix: itemPath });
-
         const file = "s3.js";
-        const store = new Store({ className: "item", id: "test", credentials });
+        const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
 
         await store.put({ localPath: path.join(__dirname, file), target: file });
 
         let link = await store.getPresignedUrl({ target: "s3.js" });
-        expect(link).toMatch(`${endpoint}/${repository}/item/t/test/s3.js`);
+        expect(link).toMatch(`${endpoint}/${repository}/nyingarn.net/item/t/test/s3.js`);
 
-        await bucket.removeObjects({ prefix: itemPath });
+        await bucket.removeObjects({ prefix: store.getItemPath() });
         await remove(path.join("/tmp", file));
     });
 });
