@@ -107,13 +107,15 @@ var Store = /** @class */ (function () {
      * @param {Credentials} credentials - the AWS credentials to use for the connection
      * @param {string} className - the class name of the item being operated on - must match: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$
      * @param {string} id - the id of the item being operated on - must match: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$
-     * @param {string} [domain] - provide this to prefix the paths by domain
+     * @param {string} domain - provide this to prefix the paths by domain
      * @param {number} [splay=1] - the number of characters (from the start of the identifer) when converting the id to a path
      */
     function Store(_a) {
         var _b = _a.domain, domain = _b === void 0 ? undefined : _b, className = _a.className, id = _a.id, credentials = _a.credentials, _c = _a.splay, splay = _c === void 0 ? 1 : _c;
         if (!id)
             throw new Error("Missing required property: 'id'");
+        if (!domain)
+            throw new Error("Missing required property: 'domain'");
         if (!className)
             throw new Error("Missing required property: 'className'");
         if (!credentials)
@@ -192,9 +194,7 @@ var Store = /** @class */ (function () {
         return __awaiter(this, void 0, void 0, function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
-                    case 0: return [4 /*yield*/, this.bucket.pathExists({
-                            path: nodePath.join(this.itemPath, "nocfl.inventory.json"),
-                        })];
+                    case 0: return [4 /*yield*/, this.bucket.pathExists({ path: this.identifierFile })];
                     case 1:
                         if (_a.sent()) {
                             return [2 /*return*/, true];

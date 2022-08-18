@@ -24,7 +24,7 @@ export class Store {
      * @param {Credentials} credentials - the AWS credentials to use for the connection
      * @param {string} className - the class name of the item being operated on - must match: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$
      * @param {string} id - the id of the item being operated on - must match: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$
-     * @param {string} [domain] - provide this to prefix the paths by domain
+     * @param {string} domain - provide this to prefix the paths by domain
      * @param {number} [splay=1] - the number of characters (from the start of the identifer) when converting the id to a path
      */
     constructor({ domain, className, id, credentials, splay }: Credentials);

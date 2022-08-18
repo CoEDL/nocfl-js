@@ -31,7 +31,7 @@
 
 
     <title>
-      Home
+      repository.js
     </title>
 
     <!--[if lt IE 9]>
@@ -97,113 +97,96 @@
 
     <div id="main" class="main-content">
       
+      <h1 id='page-title' class="page-title">
+        repository.js
+      </h1>
+      
 
       
 
 
 
     
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>import { Bucket } from "./s3.js";
+import { Store } from "./store.js";
+import EventEmitter from "events";
+import { isString, isUndefined } from "lodash";
 
+/**
+ * An AWS Credentials Object
+ * @typedef {Object} Credentials
+ * @property{string} bucket - the AWS bucket to connect to
+ * @property {string} accessKeyId - the AWS accessKey
+ * @property {string} secretAccessKey - the AWS secretAccessKey
+ * @property {string} region - the AWS region
+ * @property {string} [endpoint] - the endpoint URL when using an S3 like service (e.g. Minio)
+ * @property {boolean} [forcePathStyle] - whether to force path style endpoints (required for Minio and the like)
+ */
 
+/** Class representing an S3 repository. */
+export class Repository extends EventEmitter {
+    /**
+     * Interact with a repository in an S3 bucket
+     * @constructor
+     * @param {Credentials} credentials - the AWS credentials to use for the connection
+     * @param {string} [domain] - provide this to prefix the paths by domain
+     */
+    constructor({ credentials }) {
+        super();
 
+        if (!credentials) throw new Error(`Missing required property: 'credentials'`);
+        const requiredProperties = ["bucket", "accessKeyId", "secretAccessKey", "region"];
+        requiredProperties.forEach((property) => {
+            if (!credentials[property]) {
+                throw new Error(`Missing required property: '${property}'`);
+            }
+        });
 
+        this.roCrateFile = "ro-crate-metadata.json";
+        this.inventoryFile = "nocfl.inventory.json";
+        this.identifierFile = "nocfl.identifier.json";
 
+        this.credentials = credentials;
+        this.bucket = new Bucket(credentials);
+    }
 
+    async walk({ domain = undefined }) {
+        const walker = __walker.bind(this);
+        await walker({ domain });
 
+        async function __walker({ continuationToken }) {
+            let objects = await this.bucket.listObjects({ continuationToken });
+            for (let entry of objects.Contents) {
+                let match = false;
+                if (
+                    domain &amp;&amp;
+                    entry.Key.match(`${domain}/`) &amp;&amp;
+                    entry.Key.match(this.identifierFile)
+                ) {
+                    match = true;
+                } else if (!domain &amp;&amp; entry.Key.match(this.identifierFile)) {
+                    match = true;
+                }
+                if (match) {
+                    let inventory = await this.bucket.readJSON({
+                        target: entry.Key,
+                    });
+                    this.emit("object", inventory);
+                }
+            }
+            if (objects.NextContinuationToken) {
+                await walker({ domain, continuationToken: objects.NextContinuationToken });
+            }
+        }
+    }
 
-
-    
-
-
-    <section class="readme">
-        <article><h1 id="nocfl-js">nocfl-js</h1>
-<p>An opinionated S3 storage library inspired by ocfl but without versioning</p>
-<h1 id="background">Background</h1>
-<p>In working with the <a href="https://ocfl.io">Oxford Common File Layout - OCFL</a> we came to realise that some
-quite serious compromises were required. This is not to say that OCFL is not a good specification;
-just that we needed something different.</p>
-<p>The name of this library came from <a href="https://github.com/ptsefton">Peter Sefton</a>.</p>
-<h1 id="tests">Tests</h1>
-<p>This library has extensive tests. To run them: <code>npm run test:watch</code>. You will need docker as this
-command will start a local S3 service called <a href="https://hub.docker.com/r/minio/minio/">MinIO</a>.
-(<code>npm run develop</code> exists as a more semantically meaningful shortcut for test:watch)</p>
-<h1 id="repository-and-documentation">Repository and Documentation</h1>
-<ul>
-<li>Repository: <a href="https://github.com/CoEDL/nocfl-js">https://github.com/CoEDL/nocfl-js</a></li>
-<li>Documentation: <a href="https://coedl.github.io/nocfl-js/">https://coedl.github.io/nocfl-js/</a></li>
-</ul>
-<h1 id="about-this-library">About this library</h1>
-<p>This library is intended to simplify working with data in an S3 bucket. Its primary objective is to
-ease the creation and management of data objects in the bucket in a well defined way. Accordingly,
-the API is intentionally simple. You define some properties when creating a hook to the bucket and
-then get / put data from it. The library will produce an inventory file for you as well as a
-skeleton <a href="https://www.researchobject.org/ro-crate">Research Object Crate - RO-Crate</a>.</p>
-<h2 id="creating-a-new-item">Creating a new item</h2>
-<p>When creating a new item you need to</p>
-<ul>
-<li>pass in a domain name</li>
-<li>pass in the primary class of the data type (e.g. Collection, Item, Person etc)</li>
-<li>pass in the item identifier</li>
-</ul>
-<p>Both <code>id</code> and <code>className</code> must start with letter (upper or lowercase) and be followed by any number
-of letters (upper and lower), numbers and underscore. Any other characters will not be accepted and
-result in an error. Path creation will use the first letter of the identifier to prefix the item
-(this is configurable by defining the splay property in the constructor). The domain and class name
-will be lowercased.</p>
-<p>Path creation from the identifier is illustrated following:</p>
-<p>Examples:</p>
-<ul>
-<li>
-<p>domain: example.com, class: Item, id: test -&gt;
-<code>(bucket)/example.com/item/t/test (splay = default = 1)</code></p>
-</li>
-<li>
-<p>domain: eXamPLe.cOm, class: Item, id: test -&gt;
-<code>(bucket)/example.com/item/t/test (splay = default = 1)</code></p>
-</li>
-<li>
-<p>domain: example.com, class: Collection, id: test, splay: 2 -&gt;
-<code>(bucket)/example.com/collection/te/test</code></p>
-</li>
-<li>
-<p>domain: example.com, class: Collection, id: test, splay: 4 -&gt;
-<code>(bucket)/example.com/collection/test/test</code></p>
-</li>
-<li>
-<p>domain: example.com, class: Collection, id: test, splay: 10 -&gt;
-<code>(bucket)/example.com/collection/test/test</code></p>
-</li>
-</ul>
-<h2 id="example-usage">Example usage</h2>
-<h3 id="load-it">Load it</h3>
-<pre class="prettyprint source"><code>
-# ES modules
-import { Store } from &quot;@coedl/nocfl-js&quot;;
-
-# CommonJS
-const { Store } = require('@coedl/nocfl-js)
-
+    createIndices() {}
+}
 </code></pre>
-<h3 id="create-an-item-and-put-a-file-to-it">Create an item and put a file to it</h3>
-<pre class="prettyprint source"><code>// get a hook to the storage
-const store = new Store({ className: &quot;item&quot;, id: &quot;test&quot;, credentials });
-
-// create the item
-await store.createItem();
-
-// upload a file to it
-await store.put({ localPath: path.join(__dirname, file), target: file });
-
-// download a file from the storage
-await store.get({ target: file, localPath: path.join(&quot;/tmp&quot;, file) });
-
-// get a pre signed link to a file
-let link = await store.getPresignedUrl({ target: file });
-</code></pre>
-<p>See the <a href="./src/store.spec.js">tests</a> for more usage examples.</p></article>
+        </article>
     </section>
-
-
 
 
 
