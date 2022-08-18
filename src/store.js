@@ -125,11 +125,7 @@ export class Store {
      * @return {Boolean}
      */
     async itemExists() {
-        if (
-            await this.bucket.pathExists({
-                path: nodePath.join(this.itemPath, this.identifierFile),
-            })
-        ) {
+        if (await this.bucket.pathExists({ path: this.identifierFile })) {
             return true;
         }
         return false;
