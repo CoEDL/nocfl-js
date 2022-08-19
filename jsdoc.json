@@ -4,7 +4,7 @@
         "dictionaries": ["jsdoc", "closure"]
     },
     "source": {
-        "include": ["README.md", "./src/store.js", "./src/repository.js"]
+        "include": ["README.md", "./src/store.js", "./src/indexer.js", "./src/walker.js"]
     },
     "plugins": ["plugins/markdown"],
     "sourceType": "module",
