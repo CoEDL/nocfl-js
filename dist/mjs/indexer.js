@@ -1,6 +1,6 @@
 import { Bucket } from "./s3.js";
 import { Walker } from "./walker";
-import { orderBy } from "lodash";
+import { orderBy, uniqBy } from "lodash";
 /** Class representing an S3 Indexer. */
 export class Indexer {
     /**
@@ -26,12 +26,13 @@ export class Indexer {
     }
     /**
      * Create index files
+     * @param {string} [domain] - Create indices for this domain only
      */
     async createIndices({ domain = undefined }) {
         const walker = new Walker({ credentials: this.credentials, domain });
         let indices = {};
         walker.on("object", (object) => {
-            let { domain, className, id, itemPath, splay } = object;
+            let { domain, className, id, splay } = object;
             let idPrefix = id.slice(0, 1).toLowerCase();
             if (!indices[domain])
                 indices[domain] = {};
@@ -39,7 +40,7 @@ export class Indexer {
                 indices[domain][className] = {};
             if (!indices[domain][className][idPrefix])
                 indices[domain][className][idPrefix] = [];
-            indices[domain][className][idPrefix].push(object);
+            indices[domain][className][idPrefix].push({ domain, className, id, splay });
         });
         await walker.walk({ domain });
         let indexFiles = [];
@@ -57,11 +58,69 @@ export class Indexer {
         }
         return indexFiles;
     }
-    async patchIndex({ action, domain, className, id }) {
-        if (!["PUT, DELETE"].includes(action)) {
+    /**
+     * Patch an index file - add new item to it or remove an existing item
+     * @param {'PUT'|'DELETE'} action - the class name of the item being operated on
+     * @param {string} className - the class name of the item being operated on
+     * @param {string} id - the id of the item being operated on
+     * @param {string} domain - provide this to prefix the paths by domain
+     * @param {number} splay=1 - the number of characters (from the start of the identifer) when converting the id to a path
+     */
+    async patchIndex({ action, domain, className, id, splay = 1 }) {
+        if (!["PUT", "DELETE"].includes(action)) {
             throw new Error(`'action' must be one of 'PUT' or 'DELETE'`);
         }
+        let indexFileName = `${domain}/indices/${className}/${id.slice(0, 1).toLowerCase()}.json`;
+        let indexFile = [];
+        try {
+            indexFile = await this.bucket.readJSON({ target: indexFileName });
+        }
+        catch (error) { }
+        if (action === "PUT") {
+            indexFile.push({ domain, className, id, splay });
+        }
+        else if (action === "DELETE") {
+            indexFile = indexFile.filter((i) => i.id !== id);
+        }
+        indexFile = uniqBy(indexFile, "id");
+        await this.bucket.upload({ target: indexFileName, json: indexFile });
     }
-    async listIndices({ domain, className }) { }
-    async getIndex({ domain, className, prefix }) { }
+    /**
+     * List indices in a given domain
+     * @param {string} domain - provide the domain of the index file
+     * @param {string} className - the class name of the item being operated on
+     */
+    async listIndices({ domain, className }) {
+        if (!domain)
+            throw new Error(`You must provide 'domain'`);
+        let prefix = `${domain}/indices`;
+        if (className)
+            prefix = `${prefix}/${className}`;
+        let files = (await this.bucket.listObjects({ prefix })).Contents;
+        files = files.map((f) => f.Key);
+        return files;
+    }
+    /**
+     * Get an index file
+     * @param {string} domain - provide the domain of the index file
+     * @param {string} className - the class name of the item being operated on
+     * @param {string} [prefix] - the prefix of the index: i.e. the first letter
+     * @param {string} [file] - the index file name
+     */
+    async getIndex({ domain, className, prefix, file }) {
+        if (!domain)
+            throw new Error(`You must provide 'domain'`);
+        if (!className)
+            throw new Error(`You must provide 'className'`);
+        if (!prefix && !file)
+            throw new Error(`You must provide one of 'prefix' or 'file'`);
+        let indexFile;
+        if (file) {
+            indexFile = `${domain}/indices/${className}/${file}`;
+        }
+        else if (prefix) {
+            indexFile = `${domain}/indices/${className}/${prefix}.json`;
+        }
+        return await this.bucket.readJSON({ target: indexFile });
+    }
 }

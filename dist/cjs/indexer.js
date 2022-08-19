@@ -66,6 +66,7 @@ var Indexer = /** @class */ (function () {
     }
     /**
      * Create index files
+     * @param {string} [domain] - Create indices for this domain only
      */
     Indexer.prototype.createIndices = function (_a) {
         var _b = _a.domain, domain = _b === void 0 ? undefined : _b;
@@ -77,7 +78,7 @@ var Indexer = /** @class */ (function () {
                         walker = new walker_1.Walker({ credentials: this.credentials, domain: domain });
                         indices = {};
                         walker.on("object", function (object) {
-                            var domain = object.domain, className = object.className, id = object.id, itemPath = object.itemPath, splay = object.splay;
+                            var domain = object.domain, className = object.className, id = object.id, splay = object.splay;
                             var idPrefix = id.slice(0, 1).toLowerCase();
                             if (!indices[domain])
                                 indices[domain] = {};
@@ -85,7 +86,7 @@ var Indexer = /** @class */ (function () {
                                 indices[domain][className] = {};
                             if (!indices[domain][className][idPrefix])
                                 indices[domain][className][idPrefix] = [];
-                            indices[domain][className][idPrefix].push(object);
+                            indices[domain][className][idPrefix].push({ domain: domain, className: className, id: id, splay: splay });
                         });
                         return [4 /*yield*/, walker.walk({ domain: domain })];
                     case 1:
@@ -129,28 +130,109 @@ var Indexer = /** @class */ (function () {
             });
         });
     };
+    /**
+     * Patch an index file - add new item to it or remove an existing item
+     * @param {'PUT'|'DELETE'} action - the class name of the item being operated on
+     * @param {string} className - the class name of the item being operated on
+     * @param {string} id - the id of the item being operated on
+     * @param {string} domain - provide this to prefix the paths by domain
+     * @param {number} splay=1 - the number of characters (from the start of the identifer) when converting the id to a path
+     */
     Indexer.prototype.patchIndex = function (_a) {
-        var action = _a.action, domain = _a.domain, className = _a.className, id = _a.id;
+        var action = _a.action, domain = _a.domain, className = _a.className, id = _a.id, _b = _a.splay, splay = _b === void 0 ? 1 : _b;
         return __awaiter(this, void 0, void 0, function () {
-            return __generator(this, function (_b) {
-                if (!["PUT, DELETE"].includes(action)) {
-                    throw new Error("'action' must be one of 'PUT' or 'DELETE'");
+            var indexFileName, indexFile, error_1;
+            return __generator(this, function (_c) {
+                switch (_c.label) {
+                    case 0:
+                        if (!["PUT", "DELETE"].includes(action)) {
+                            throw new Error("'action' must be one of 'PUT' or 'DELETE'");
+                        }
+                        indexFileName = "".concat(domain, "/indices/").concat(className, "/").concat(id.slice(0, 1).toLowerCase(), ".json");
+                        indexFile = [];
+                        _c.label = 1;
+                    case 1:
+                        _c.trys.push([1, 3, , 4]);
+                        return [4 /*yield*/, this.bucket.readJSON({ target: indexFileName })];
+                    case 2:
+                        indexFile = _c.sent();
+                        return [3 /*break*/, 4];
+                    case 3:
+                        error_1 = _c.sent();
+                        return [3 /*break*/, 4];
+                    case 4:
+                        if (action === "PUT") {
+                            indexFile.push({ domain: domain, className: className, id: id, splay: splay });
+                        }
+                        else if (action === "DELETE") {
+                            indexFile = indexFile.filter(function (i) { return i.id !== id; });
+                        }
+                        indexFile = (0, lodash_1.uniqBy)(indexFile, "id");
+                        return [4 /*yield*/, this.bucket.upload({ target: indexFileName, json: indexFile })];
+                    case 5:
+                        _c.sent();
+                        return [2 /*return*/];
                 }
-                return [2 /*return*/];
             });
         });
     };
+    /**
+     * List indices in a given domain
+     * @param {string} domain - provide the domain of the index file
+     * @param {string} className - the class name of the item being operated on
+     */
     Indexer.prototype.listIndices = function (_a) {
         var domain = _a.domain, className = _a.className;
-        return __awaiter(this, void 0, void 0, function () { return __generator(this, function (_b) {
-            return [2 /*return*/];
-        }); });
+        return __awaiter(this, void 0, void 0, function () {
+            var prefix, files;
+            return __generator(this, function (_b) {
+                switch (_b.label) {
+                    case 0:
+                        if (!domain)
+                            throw new Error("You must provide 'domain'");
+                        prefix = "".concat(domain, "/indices");
+                        if (className)
+                            prefix = "".concat(prefix, "/").concat(className);
+                        return [4 /*yield*/, this.bucket.listObjects({ prefix: prefix })];
+                    case 1:
+                        files = (_b.sent()).Contents;
+                        files = files.map(function (f) { return f.Key; });
+                        return [2 /*return*/, files];
+                }
+            });
+        });
     };
+    /**
+     * Get an index file
+     * @param {string} domain - provide the domain of the index file
+     * @param {string} className - the class name of the item being operated on
+     * @param {string} [prefix] - the prefix of the index: i.e. the first letter
+     * @param {string} [file] - the index file name
+     */
     Indexer.prototype.getIndex = function (_a) {
-        var domain = _a.domain, className = _a.className, prefix = _a.prefix;
-        return __awaiter(this, void 0, void 0, function () { return __generator(this, function (_b) {
-            return [2 /*return*/];
-        }); });
+        var domain = _a.domain, className = _a.className, prefix = _a.prefix, file = _a.file;
+        return __awaiter(this, void 0, void 0, function () {
+            var indexFile;
+            return __generator(this, function (_b) {
+                switch (_b.label) {
+                    case 0:
+                        if (!domain)
+                            throw new Error("You must provide 'domain'");
+                        if (!className)
+                            throw new Error("You must provide 'className'");
+                        if (!prefix && !file)
+                            throw new Error("You must provide one of 'prefix' or 'file'");
+                        if (file) {
+                            indexFile = "".concat(domain, "/indices/").concat(className, "/").concat(file);
+                        }
+                        else if (prefix) {
+                            indexFile = "".concat(domain, "/indices/").concat(className, "/").concat(prefix, ".json");
+                        }
+                        return [4 /*yield*/, this.bucket.readJSON({ target: indexFile })];
+                    case 1: return [2 /*return*/, _b.sent()];
+                }
+            });
+        });
     };
     return Indexer;
 }());
