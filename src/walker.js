@@ -1,23 +1,12 @@
 import { Bucket } from "./s3.js";
 import { Store } from "./store.js";
 import EventEmitter from "events";
-import { isString, isUndefined } from "lodash";
+import { orderBy } from "lodash";
 
-/**
- * An AWS Credentials Object
- * @typedef {Object} Credentials
- * @property{string} bucket - the AWS bucket to connect to
- * @property {string} accessKeyId - the AWS accessKey
- * @property {string} secretAccessKey - the AWS secretAccessKey
- * @property {string} region - the AWS region
- * @property {string} [endpoint] - the endpoint URL when using an S3 like service (e.g. Minio)
- * @property {boolean} [forcePathStyle] - whether to force path style endpoints (required for Minio and the like)
- */
-
-/** Class representing an S3 repository. */
-export class Repository extends EventEmitter {
+/** Class representing an S3 walker. */
+export class Walker extends EventEmitter {
     /**
-     * Interact with a repository in an S3 bucket
+     * Walk a repository in an S3 bucket
      * @constructor
      * @param {Credentials} credentials - the AWS credentials to use for the connection
      * @param {string} [domain] - provide this to prefix the paths by domain
@@ -41,6 +30,11 @@ export class Repository extends EventEmitter {
         this.bucket = new Bucket(credentials);
     }
 
+    /**
+     * Walk the repository and emit when an object is located. The object data
+     *   to set up a store connection to it is emitted.
+     * @param {string} [domain] - Walk only the defined domain
+     */
     async walk({ domain = undefined }) {
         const walker = __walker.bind(this);
         await walker({ domain });
@@ -70,6 +64,4 @@ export class Repository extends EventEmitter {
             }
         }
     }
-
-    createIndices() {}
 }
