@@ -57,7 +57,7 @@ export class Store {
         if (!isString(className)) {
             throw new Error(`The 'className' must be a string`);
         }
-        if (!isString(domain) && !isUndefined(domain)) {
+        if (!isString(domain)) {
             throw new Error(`The 'domain' must be a string`);
         }
         if (!id.match(/^[a-z,A-Z][a-z,A-Z,0-9,_]+$/)) {

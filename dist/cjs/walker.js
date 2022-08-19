@@ -54,29 +54,19 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Repository = void 0;
+exports.Walker = void 0;
 var s3_js_1 = require("./s3.js");
 var events_1 = __importDefault(require("events"));
-/**
- * An AWS Credentials Object
- * @typedef {Object} Credentials
- * @property{string} bucket - the AWS bucket to connect to
- * @property {string} accessKeyId - the AWS accessKey
- * @property {string} secretAccessKey - the AWS secretAccessKey
- * @property {string} region - the AWS region
- * @property {string} [endpoint] - the endpoint URL when using an S3 like service (e.g. Minio)
- * @property {boolean} [forcePathStyle] - whether to force path style endpoints (required for Minio and the like)
- */
-/** Class representing an S3 repository. */
-var Repository = /** @class */ (function (_super) {
-    __extends(Repository, _super);
+/** Class representing an S3 walker. */
+var Walker = /** @class */ (function (_super) {
+    __extends(Walker, _super);
     /**
-     * Interact with a repository in an S3 bucket
+     * Walk a repository in an S3 bucket
      * @constructor
      * @param {Credentials} credentials - the AWS credentials to use for the connection
      * @param {string} [domain] - provide this to prefix the paths by domain
      */
-    function Repository(_a) {
+    function Walker(_a) {
         var credentials = _a.credentials;
         var _this = _super.call(this) || this;
         if (!credentials)
@@ -94,7 +84,12 @@ var Repository = /** @class */ (function (_super) {
         _this.bucket = new s3_js_1.Bucket(credentials);
         return _this;
     }
-    Repository.prototype.walk = function (_a) {
+    /**
+     * Walk the repository and emit when an object is located. The object data
+     *   to set up a store connection to it is emitted.
+     * @param {string} [domain] - Walk only the defined domain
+     */
+    Walker.prototype.walk = function (_a) {
         var _b = _a.domain, domain = _b === void 0 ? undefined : _b;
         return __awaiter(this, void 0, void 0, function () {
             function __walker(_a) {
@@ -155,7 +150,6 @@ var Repository = /** @class */ (function (_super) {
             });
         });
     };
-    Repository.prototype.createIndices = function () { };
-    return Repository;
+    return Walker;
 }(events_1.default));
-exports.Repository = Repository;
+exports.Walker = Walker;
