@@ -47,17 +47,14 @@ Path creation from the identifier is illustrated following:
 
 Examples:
 
--   domain: example.com, class: Item, id: test ->
-    `(bucket)/example.com/item/t/test (splay = default = 1)`
--   domain: eXamPLe.cOm, class: Item, id: test ->
-    `(bucket)/example.com/item/t/test (splay = default = 1)`
+```
+-   domain: example.com, class: Item, id: test -> `(bucket)/example.com/item/t/test (splay = default = 1)`
+-   domain: eXamPLe.cOm, class: Item, id: test -> `(bucket)/example.com/item/t/test (splay = default = 1)`
 
--   domain: example.com, class: Collection, id: test, splay: 2 ->
-    `(bucket)/example.com/collection/te/test`
--   domain: example.com, class: Collection, id: test, splay: 4 ->
-    `(bucket)/example.com/collection/test/test`
--   domain: example.com, class: Collection, id: test, splay: 10 ->
-    `(bucket)/example.com/collection/test/test`
+-   domain: example.com, class: Collection, id: test, splay: 2 -> `(bucket)/example.com/collection/te/test`
+-   domain: example.com, class: Collection, id: test, splay: 4 -> `(bucket)/example.com/collection/test/test`
+-   domain: example.com, class: Collection, id: test, splay: 10 -> `(bucket)/example.com/collection/test/test`
+```
 
 ## Example usage
 
