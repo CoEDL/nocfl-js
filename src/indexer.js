@@ -62,7 +62,8 @@ export class Indexer {
     }
 
     /**
-     * Patch an index file - add new item to it
+     * Patch an index file - add new item to it or remove an existing item
+     * @param {'PUT'|'DELETE'} action - the action to perform
      * @param {string} className - the class name of the item being operated on
      * @param {string} id - the id of the item being operated on
      * @param {string} domain - provide this to prefix the paths by domain
