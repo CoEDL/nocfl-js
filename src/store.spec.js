@@ -109,8 +109,6 @@ describe("Test storage actions", () => {
         expect(itemPath).toEqual("nyingarn.net/item/test/test");
     });
     test("it should be able to create a new item", async () => {
-        const itemPath = path.join("item", "t", "test");
-
         const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
         let resources = await store.listResources();
@@ -124,6 +122,12 @@ describe("Test storage actions", () => {
         expect(getFile({ resources, file: "nocfl.inventory.json" }).Key).toEqual(
             "nocfl.inventory.json"
         );
+
+        // check the index has been patched
+        let index = await indexer.getIndex({ domain, className: "item", prefix: "t" });
+        expect(index).toEqual([
+            { domain: "nyingarn.net", className: "item", id: "test", splay: 1 },
+        ]);
 
         await bucket.delete({ prefix: "nyingarn.net/item/t/test" });
     });
@@ -209,12 +213,6 @@ describe("Test storage actions", () => {
         await store.get({ target: file, localPath: path.join("/tmp", file) });
         expect(await pathExists(path.join("/tmp", file))).toBe(true);
         await remove(path.join("/tmp", file));
-
-        // check the index has been patched
-        let index = await indexer.getIndex({ domain, className: "item", prefix: "t" });
-        expect(index).toEqual([
-            { domain: "nyingarn.net", className: "item", id: "test", splay: 1 },
-        ]);
 
         await bucket.delete({ prefix: store.getItemPath() });
         await remove(path.join("/tmp", file));
@@ -362,11 +360,6 @@ describe("Test storage actions", () => {
 
         let resources = await store.listResources();
         expect(resources.length).toEqual(14);
-
-        let index = await indexer.getIndex({ domain, className: "item", prefix: "t" });
-        expect(index).toEqual([
-            { domain: "nyingarn.net", className: "item", id: "test", splay: 1 },
-        ]);
 
         await bucket.delete({ prefix: store.getItemPath() });
     });
