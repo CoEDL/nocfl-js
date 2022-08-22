@@ -4,8 +4,9 @@ const { createReadStream } = fsExtra;
 import crypto from "crypto";
 import * as nodePath from "path";
 import hasha from "hasha";
+import { Indexer } from "./indexer.js";
 import lodashPkg from "lodash";
-const { isString, isUndefined, isArray, chunk } = lodashPkg;
+const { isString, isArray, chunk } = lodashPkg;
 const specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
 /**
  * A transfer Object
@@ -14,6 +15,10 @@ const specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
  * @property {String} json - a JSON object to store in the file directly
  * @property {String} content - some content to store in the file directly
  * @property {String} target - the target name for the file; this will be set relative to the item path
+ * @property {Boolean} registerFile=true - whether the file should be registered in ro-crate-metadata.json.
+ *  The file will be registered in the hasPart property of the root dataset if there isn't already an entry for the file.
+ * @property {Boolean} version=false - whether the file should be versioned. If true, the existing file will be copied
+ *  to ${file}.v${date as ISO String}.{ext} before the new version is uploaded to the target name
  */
 /**
  * An AWS Credentials Object
@@ -72,9 +77,7 @@ export class Store {
         this.id = id;
         this.className = className;
         this.domain = domain;
-        this.itemPath = domain
-            ? `${domain.toLowerCase()}/${className.toLowerCase()}/${id.slice(0, splay)}/${id}`
-            : `${className.toLowerCase()}/${id.slice(0, splay)}/${id}`;
+        this.itemPath = `${domain.toLowerCase()}/${className.toLowerCase()}/${id.slice(0, splay)}/${id}`;
         this.splay = splay;
         this.roCrateFile = nodePath.join(this.itemPath, "ro-crate-metadata.json");
         this.inventoryFile = nodePath.join(this.itemPath, "nocfl.inventory.json");
@@ -111,6 +114,7 @@ export class Store {
                 },
             ],
         };
+        this.indexer = new Indexer({ credentials });
     }
     /**
      * Check whether the item exists in the storage
@@ -172,15 +176,15 @@ export class Store {
             throw new Error(`An item with that identifier already exists`);
         }
         let roCrateFileHash = hasha(JSON.stringify(this.roCrateSkeleton));
-        await this.bucket.upload({
+        await this.bucket.put({
             target: this.roCrateFile,
             json: this.roCrateSkeleton,
         });
-        await this.bucket.upload({
+        await this.bucket.put({
             target: this.inventoryFile,
             json: { content: { "ro-crate-metadata.json": roCrateFileHash } },
         });
-        await this.bucket.upload({
+        await this.bucket.put({
             target: this.identifierFile,
             json: {
                 id: this.id,
@@ -189,6 +193,14 @@ export class Store {
                 itemPath: this.itemPath,
                 splay: this.splay,
             },
+        });
+        // patch the index file
+        await this.indexer.patchIndex({
+            action: "PUT",
+            domain: this.domain,
+            className: this.className,
+            id: this.id,
+            splay: this.splay,
         });
     }
     /**
@@ -199,7 +211,20 @@ export class Store {
      */
     async get({ localPath, target }) {
         target = nodePath.join(this.itemPath, target);
-        return await this.bucket.download({ target, localPath });
+        return await this.bucket.get({ target, localPath });
+    }
+    /**
+     * Get file versions
+     * @param {Object} params
+     * @param {String} params.target - the file whose versions to retrieve
+     * @return {Array} - versions of the specified file ordered newest to oldest. The file as named (ie without a version
+     *   string will be the first - newest - entry)
+     */
+    async listFileVersions({ target }) {
+        target = nodePath.basename(target, nodePath.extname(target));
+        let files = await this.bucket.listObjects({ prefix: nodePath.join(this.itemPath, target) });
+        let versions = files.Contents.map((c) => c.Key).sort();
+        return [...versions.slice(1), versions[0]].reverse();
     }
     /**
      * Get a JSON file from the item on the storage
@@ -227,11 +252,14 @@ export class Store {
      * @param {String} params.json - a JSON object to store in the file directly
      * @param {String} params.content - some content to store in the file directly
      * @param {String} params.target - the target name for the file; this will be set relative to the item path
-     * @param {Boolean} params.registerFile = true - the target name for the file; this will be set relative to the item path
+     * @param {Boolean} params.registerFile=true - whether the file should be registered in ro-crate-metadata.json.
+     *  The file will be registered in the hasPart property of the root dataset if there isn't already an entry for the file.
+     * @param {Boolean} params.version=false - whether the file should be versioned. If true, the existing file will be copied
+     *  to ${file}.v${date as ISO String}.{ext} before the new version is uploaded to the target name
      * @param {Transfer[]} params.batch - an array of objects defining content to put into the store where the params
      *  are as for the single case. Uploads will be run 5 at a time.
      */
-    async put({ localPath = undefined, json = undefined, content = undefined, target = undefined, registerFile = true, batch = [], }) {
+    async put({ localPath = undefined, json = undefined, content = undefined, target = undefined, registerFile = true, version = false, batch = [], }) {
         if (!(await this.itemExists())) {
             throw new Error(`The item doesn't exist`);
         }
@@ -245,7 +273,7 @@ export class Store {
             }
         }
         else {
-            await transfer({ localPath, json, content, target, registerFile });
+            await transfer({ localPath, json, content, target, registerFile, version });
         }
         // get the crate file
         let crate = await this.getJSON({ target: "ro-crate-metadata.json" });
@@ -267,12 +295,12 @@ export class Store {
                 });
             }
         }
-        // console.log("uploading crate", crate["@graph"]);
-        await this.bucket.upload({
+        // update the ro crate file
+        await this.bucket.put({
             target: this.roCrateFile,
             json: crate,
         });
-        async function transfer({ localPath, json, content, target, registerFile }) {
+        async function transfer({ localPath, json, content, target, registerFile, version }) {
             if (specialFiles.includes(target)) {
                 throw new Error(`You can't upload a file called '${target} as that's a special file used by the system`);
             }
@@ -287,8 +315,25 @@ export class Store {
                 await this.__updateInventory({ target, hash: hasha(content) });
             }
             let s3Target = nodePath.join(this.itemPath, target);
-            await this.bucket.upload({ localPath, json, content, target: s3Target });
-            // await updateCrateMetadata({ target, registerFile });
+            if (version) {
+                const date = new Date().toISOString();
+                let versionFile = nodePath.join(this.itemPath, `${nodePath.basename(target, nodePath.extname(target))}.v${date}${nodePath.extname(target)}`);
+                try {
+                    await this.bucket.copy({ source: s3Target, target: versionFile });
+                }
+                catch (error) {
+                    if (error.message === "The specified key does not exist.") {
+                        // no source file available - that's ok - ignore it - nothing to version yet
+                    }
+                    else {
+                        throw new Error(error.message);
+                    }
+                }
+                await this.bucket.put({ localPath, json, content, target: s3Target });
+            }
+            else {
+                await this.bucket.put({ localPath, json, content, target: s3Target });
+            }
         }
         async function updateCrateMetadata({ graph, target, registerFile }) {
             // we don't register the ro crate file
@@ -354,14 +399,14 @@ export class Store {
             if (isString(target))
                 target = [target];
             let keys = target.map((t) => nodePath.join(this.itemPath, t));
-            return await this.bucket.removeObjects({ keys });
+            return await this.bucket.delete({ keys });
         }
         else if (prefix) {
             if (!isString(prefix)) {
                 throw new Error(`prefix must be a string`);
             }
             prefix = nodePath.join(this.itemPath, prefix);
-            return await this.bucket.removeObjects({ prefix });
+            return await this.bucket.delete({ prefix });
         }
     }
     /**
@@ -371,7 +416,15 @@ export class Store {
         if (!(await this.itemExists())) {
             throw new Error(`The item doesn't exist`);
         }
-        return await this.bucket.removeObjects({ prefix: `${this.itemPath}/` });
+        await this.bucket.delete({ prefix: `${this.itemPath}/` });
+        // patch the index file
+        await this.indexer.patchIndex({
+            action: "DELETE",
+            domain: this.domain,
+            className: this.className,
+            id: this.id,
+            splay: this.splay,
+        });
     }
     /**
      * Recursively walk and list all of the files for the item
@@ -410,9 +463,9 @@ export class Store {
      * @return a list of files
      */
     async __updateInventory({ target, hash }) {
-        let inventory = JSON.parse(await this.bucket.download({ target: this.inventoryFile }));
+        let inventory = JSON.parse(await this.bucket.get({ target: this.inventoryFile }));
         inventory.content[target] = hash;
-        await this.bucket.upload({
+        await this.bucket.put({
             target: this.inventoryFile,
             json: inventory,
         });

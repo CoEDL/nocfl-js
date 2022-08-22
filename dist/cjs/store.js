@@ -78,8 +78,9 @@ var createReadStream = fs_extra_1.default.createReadStream;
 var crypto_1 = __importDefault(require("crypto"));
 var nodePath = __importStar(require("path"));
 var hasha_1 = __importDefault(require("hasha"));
+var indexer_js_1 = require("./indexer.js");
 var lodash_1 = __importDefault(require("lodash"));
-var isString = lodash_1.default.isString, isUndefined = lodash_1.default.isUndefined, isArray = lodash_1.default.isArray, chunk = lodash_1.default.chunk;
+var isString = lodash_1.default.isString, isArray = lodash_1.default.isArray, chunk = lodash_1.default.chunk;
 var specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
 /**
  * A transfer Object
@@ -88,6 +89,10 @@ var specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
  * @property {String} json - a JSON object to store in the file directly
  * @property {String} content - some content to store in the file directly
  * @property {String} target - the target name for the file; this will be set relative to the item path
+ * @property {Boolean} registerFile=true - whether the file should be registered in ro-crate-metadata.json.
+ *  The file will be registered in the hasPart property of the root dataset if there isn't already an entry for the file.
+ * @property {Boolean} version=false - whether the file should be versioned. If true, the existing file will be copied
+ *  to ${file}.v${date as ISO String}.{ext} before the new version is uploaded to the target name
  */
 /**
  * An AWS Credentials Object
@@ -147,9 +152,7 @@ var Store = /** @class */ (function () {
         this.id = id;
         this.className = className;
         this.domain = domain;
-        this.itemPath = domain
-            ? "".concat(domain.toLowerCase(), "/").concat(className.toLowerCase(), "/").concat(id.slice(0, splay), "/").concat(id)
-            : "".concat(className.toLowerCase(), "/").concat(id.slice(0, splay), "/").concat(id);
+        this.itemPath = "".concat(domain.toLowerCase(), "/").concat(className.toLowerCase(), "/").concat(id.slice(0, splay), "/").concat(id);
         this.splay = splay;
         this.roCrateFile = nodePath.join(this.itemPath, "ro-crate-metadata.json");
         this.inventoryFile = nodePath.join(this.itemPath, "nocfl.inventory.json");
@@ -186,6 +189,7 @@ var Store = /** @class */ (function () {
                 },
             ],
         };
+        this.indexer = new indexer_js_1.Indexer({ credentials: credentials });
     }
     /**
      * Check whether the item exists in the storage
@@ -295,19 +299,19 @@ var Store = /** @class */ (function () {
                             throw new Error("An item with that identifier already exists");
                         }
                         roCrateFileHash = (0, hasha_1.default)(JSON.stringify(this.roCrateSkeleton));
-                        return [4 /*yield*/, this.bucket.upload({
+                        return [4 /*yield*/, this.bucket.put({
                                 target: this.roCrateFile,
                                 json: this.roCrateSkeleton,
                             })];
                     case 2:
                         _a.sent();
-                        return [4 /*yield*/, this.bucket.upload({
+                        return [4 /*yield*/, this.bucket.put({
                                 target: this.inventoryFile,
                                 json: { content: { "ro-crate-metadata.json": roCrateFileHash } },
                             })];
                     case 3:
                         _a.sent();
-                        return [4 /*yield*/, this.bucket.upload({
+                        return [4 /*yield*/, this.bucket.put({
                                 target: this.identifierFile,
                                 json: {
                                     id: this.id,
@@ -318,6 +322,17 @@ var Store = /** @class */ (function () {
                                 },
                             })];
                     case 4:
+                        _a.sent();
+                        // patch the index file
+                        return [4 /*yield*/, this.indexer.patchIndex({
+                                action: "PUT",
+                                domain: this.domain,
+                                className: this.className,
+                                id: this.id,
+                                splay: this.splay,
+                            })];
+                    case 5:
+                        // patch the index file
                         _a.sent();
                         return [2 /*return*/];
                 }
@@ -337,8 +352,32 @@ var Store = /** @class */ (function () {
                 switch (_b.label) {
                     case 0:
                         target = nodePath.join(this.itemPath, target);
-                        return [4 /*yield*/, this.bucket.download({ target: target, localPath: localPath })];
+                        return [4 /*yield*/, this.bucket.get({ target: target, localPath: localPath })];
                     case 1: return [2 /*return*/, _b.sent()];
+                }
+            });
+        });
+    };
+    /**
+     * Get file versions
+     * @param {Object} params
+     * @param {String} params.target - the file whose versions to retrieve
+     * @return {Array} - versions of the specified file ordered newest to oldest. The file as named (ie without a version
+     *   string will be the first - newest - entry)
+     */
+    Store.prototype.listFileVersions = function (_a) {
+        var target = _a.target;
+        return __awaiter(this, void 0, void 0, function () {
+            var files, versions;
+            return __generator(this, function (_b) {
+                switch (_b.label) {
+                    case 0:
+                        target = nodePath.basename(target, nodePath.extname(target));
+                        return [4 /*yield*/, this.bucket.listObjects({ prefix: nodePath.join(this.itemPath, target) })];
+                    case 1:
+                        files = _b.sent();
+                        versions = files.Contents.map(function (c) { return c.Key; }).sort();
+                        return [2 /*return*/, __spreadArray(__spreadArray([], versions.slice(1), true), [versions[0]], false).reverse()];
                 }
             });
         });
@@ -389,17 +428,20 @@ var Store = /** @class */ (function () {
      * @param {String} params.json - a JSON object to store in the file directly
      * @param {String} params.content - some content to store in the file directly
      * @param {String} params.target - the target name for the file; this will be set relative to the item path
-     * @param {Boolean} params.registerFile = true - the target name for the file; this will be set relative to the item path
+     * @param {Boolean} params.registerFile=true - whether the file should be registered in ro-crate-metadata.json.
+     *  The file will be registered in the hasPart property of the root dataset if there isn't already an entry for the file.
+     * @param {Boolean} params.version=false - whether the file should be versioned. If true, the existing file will be copied
+     *  to ${file}.v${date as ISO String}.{ext} before the new version is uploaded to the target name
      * @param {Transfer[]} params.batch - an array of objects defining content to put into the store where the params
      *  are as for the single case. Uploads will be run 5 at a time.
      */
     Store.prototype.put = function (_a) {
-        var _b = _a.localPath, localPath = _b === void 0 ? undefined : _b, _c = _a.json, json = _c === void 0 ? undefined : _c, _d = _a.content, content = _d === void 0 ? undefined : _d, _e = _a.target, target = _e === void 0 ? undefined : _e, _f = _a.registerFile, registerFile = _f === void 0 ? true : _f, _g = _a.batch, batch = _g === void 0 ? [] : _g;
+        var _b = _a.localPath, localPath = _b === void 0 ? undefined : _b, _c = _a.json, json = _c === void 0 ? undefined : _c, _d = _a.content, content = _d === void 0 ? undefined : _d, _e = _a.target, target = _e === void 0 ? undefined : _e, _f = _a.registerFile, registerFile = _f === void 0 ? true : _f, _g = _a.version, version = _g === void 0 ? false : _g, _h = _a.batch, batch = _h === void 0 ? [] : _h;
         return __awaiter(this, void 0, void 0, function () {
             function transfer(_a) {
-                var localPath = _a.localPath, json = _a.json, content = _a.content, target = _a.target, registerFile = _a.registerFile;
+                var localPath = _a.localPath, json = _a.json, content = _a.content, target = _a.target, registerFile = _a.registerFile, version = _a.version;
                 return __awaiter(this, void 0, void 0, function () {
-                    var hash, s3Target;
+                    var hash, s3Target, date, versionFile, error_1;
                     return __generator(this, function (_b) {
                         switch (_b.label) {
                             case 0:
@@ -426,10 +468,34 @@ var Store = /** @class */ (function () {
                                 _b.label = 7;
                             case 7:
                                 s3Target = nodePath.join(this.itemPath, target);
-                                return [4 /*yield*/, this.bucket.upload({ localPath: localPath, json: json, content: content, target: s3Target })];
+                                if (!version) return [3 /*break*/, 13];
+                                date = new Date().toISOString();
+                                versionFile = nodePath.join(this.itemPath, "".concat(nodePath.basename(target, nodePath.extname(target)), ".v").concat(date).concat(nodePath.extname(target)));
+                                _b.label = 8;
                             case 8:
+                                _b.trys.push([8, 10, , 11]);
+                                return [4 /*yield*/, this.bucket.copy({ source: s3Target, target: versionFile })];
+                            case 9:
                                 _b.sent();
-                                return [2 /*return*/];
+                                return [3 /*break*/, 11];
+                            case 10:
+                                error_1 = _b.sent();
+                                if (error_1.message === "The specified key does not exist.") {
+                                    // no source file available - that's ok - ignore it - nothing to version yet
+                                }
+                                else {
+                                    throw new Error(error_1.message);
+                                }
+                                return [3 /*break*/, 11];
+                            case 11: return [4 /*yield*/, this.bucket.put({ localPath: localPath, json: json, content: content, target: s3Target })];
+                            case 12:
+                                _b.sent();
+                                return [3 /*break*/, 15];
+                            case 13: return [4 /*yield*/, this.bucket.put({ localPath: localPath, json: json, content: content, target: s3Target })];
+                            case 14:
+                                _b.sent();
+                                _b.label = 15;
+                            case 15: return [2 /*return*/];
                         }
                     });
                 });
@@ -487,12 +553,12 @@ var Store = /** @class */ (function () {
                     });
                 });
             }
-            var chunks, _i, chunks_1, chunk_1, transfers, crate, _h, _j, _k, batch_1, _l, target_1, registerFile_1, _m, _o;
-            return __generator(this, function (_p) {
-                switch (_p.label) {
+            var chunks, _i, chunks_1, chunk_1, transfers, crate, _j, _k, _l, batch_1, _m, target_1, registerFile_1, _o, _p;
+            return __generator(this, function (_q) {
+                switch (_q.label) {
                     case 0: return [4 /*yield*/, this.itemExists()];
                     case 1:
-                        if (!(_p.sent())) {
+                        if (!(_q.sent())) {
                             throw new Error("The item doesn't exist");
                         }
                         transfer = transfer.bind(this);
@@ -500,66 +566,66 @@ var Store = /** @class */ (function () {
                         if (!batch.length) return [3 /*break*/, 6];
                         chunks = chunk(batch, 5);
                         _i = 0, chunks_1 = chunks;
-                        _p.label = 2;
+                        _q.label = 2;
                     case 2:
                         if (!(_i < chunks_1.length)) return [3 /*break*/, 5];
                         chunk_1 = chunks_1[_i];
                         transfers = chunk_1.map(function (t) { return transfer(t); });
                         return [4 /*yield*/, Promise.all(transfers)];
                     case 3:
-                        _p.sent();
-                        _p.label = 4;
+                        _q.sent();
+                        _q.label = 4;
                     case 4:
                         _i++;
                         return [3 /*break*/, 2];
                     case 5: return [3 /*break*/, 8];
-                    case 6: return [4 /*yield*/, transfer({ localPath: localPath, json: json, content: content, target: target, registerFile: registerFile })];
+                    case 6: return [4 /*yield*/, transfer({ localPath: localPath, json: json, content: content, target: target, registerFile: registerFile, version: version })];
                     case 7:
-                        _p.sent();
-                        _p.label = 8;
+                        _q.sent();
+                        _q.label = 8;
                     case 8: return [4 /*yield*/, this.getJSON({ target: "ro-crate-metadata.json" })];
                     case 9:
-                        crate = _p.sent();
+                        crate = _q.sent();
                         if (!target) return [3 /*break*/, 11];
-                        _h = crate;
-                        _j = "@graph";
+                        _j = crate;
+                        _k = "@graph";
                         return [4 /*yield*/, updateCrateMetadata({
                                 graph: crate["@graph"],
                                 target: target,
                                 registerFile: registerFile,
                             })];
                     case 10:
-                        _h[_j] = _p.sent();
-                        _p.label = 11;
+                        _j[_k] = _q.sent();
+                        _q.label = 11;
                     case 11:
                         if (!batch.length) return [3 /*break*/, 15];
-                        _k = 0, batch_1 = batch;
-                        _p.label = 12;
+                        _l = 0, batch_1 = batch;
+                        _q.label = 12;
                     case 12:
-                        if (!(_k < batch_1.length)) return [3 /*break*/, 15];
-                        _l = batch_1[_k], target_1 = _l.target, registerFile_1 = _l.registerFile;
-                        _m = crate;
-                        _o = "@graph";
+                        if (!(_l < batch_1.length)) return [3 /*break*/, 15];
+                        _m = batch_1[_l], target_1 = _m.target, registerFile_1 = _m.registerFile;
+                        _o = crate;
+                        _p = "@graph";
                         return [4 /*yield*/, updateCrateMetadata({
                                 graph: crate["@graph"],
                                 target: target_1,
                                 registerFile: registerFile_1,
                             })];
                     case 13:
-                        _m[_o] = _p.sent();
-                        _p.label = 14;
+                        _o[_p] = _q.sent();
+                        _q.label = 14;
                     case 14:
-                        _k++;
+                        _l++;
                         return [3 /*break*/, 12];
                     case 15: 
-                    // console.log("uploading crate", crate["@graph"]);
-                    return [4 /*yield*/, this.bucket.upload({
+                    // update the ro crate file
+                    return [4 /*yield*/, this.bucket.put({
                             target: this.roCrateFile,
                             json: crate,
                         })];
                     case 16:
-                        // console.log("uploading crate", crate["@graph"]);
-                        _p.sent();
+                        // update the ro crate file
+                        _q.sent();
                         return [2 /*return*/];
                 }
             });
@@ -594,7 +660,7 @@ var Store = /** @class */ (function () {
                         if (isString(target))
                             target = [target];
                         keys = target.map(function (t) { return nodePath.join(_this.itemPath, t); });
-                        return [4 /*yield*/, this.bucket.removeObjects({ keys: keys })];
+                        return [4 /*yield*/, this.bucket.delete({ keys: keys })];
                     case 2: return [2 /*return*/, _d.sent()];
                     case 3:
                         if (!prefix) return [3 /*break*/, 5];
@@ -602,7 +668,7 @@ var Store = /** @class */ (function () {
                             throw new Error("prefix must be a string");
                         }
                         prefix = nodePath.join(this.itemPath, prefix);
-                        return [4 /*yield*/, this.bucket.removeObjects({ prefix: prefix })];
+                        return [4 /*yield*/, this.bucket.delete({ prefix: prefix })];
                     case 4: return [2 /*return*/, _d.sent()];
                     case 5: return [2 /*return*/];
                 }
@@ -621,8 +687,21 @@ var Store = /** @class */ (function () {
                         if (!(_a.sent())) {
                             throw new Error("The item doesn't exist");
                         }
-                        return [4 /*yield*/, this.bucket.removeObjects({ prefix: "".concat(this.itemPath, "/") })];
-                    case 2: return [2 /*return*/, _a.sent()];
+                        return [4 /*yield*/, this.bucket.delete({ prefix: "".concat(this.itemPath, "/") })];
+                    case 2:
+                        _a.sent();
+                        // patch the index file
+                        return [4 /*yield*/, this.indexer.patchIndex({
+                                action: "DELETE",
+                                domain: this.domain,
+                                className: this.className,
+                                id: this.id,
+                                splay: this.splay,
+                            })];
+                    case 3:
+                        // patch the index file
+                        _a.sent();
+                        return [2 /*return*/];
                 }
             });
         });
@@ -688,11 +767,11 @@ var Store = /** @class */ (function () {
                 switch (_d.label) {
                     case 0:
                         _c = (_b = JSON).parse;
-                        return [4 /*yield*/, this.bucket.download({ target: this.inventoryFile })];
+                        return [4 /*yield*/, this.bucket.get({ target: this.inventoryFile })];
                     case 1:
                         inventory = _c.apply(_b, [_d.sent()]);
                         inventory.content[target] = hash;
-                        return [4 /*yield*/, this.bucket.upload({
+                        return [4 /*yield*/, this.bucket.put({
                                 target: this.inventoryFile,
                                 json: inventory,
                             })];

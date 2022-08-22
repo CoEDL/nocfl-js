@@ -50,7 +50,7 @@ export class Indexer {
                 for (let idPrefix of Object.keys(indices[domain][className])) {
                     let indexFile = `${domain}/indices/${className}/${idPrefix}.json`;
                     indexFiles.push(indexFile);
-                    await this.bucket.upload({
+                    await this.bucket.put({
                         target: indexFile,
                         json: orderBy(indices[domain][className][idPrefix], "id"),
                     });
@@ -85,7 +85,7 @@ export class Indexer {
             indexFile = indexFile.filter((i) => i.id !== id);
         }
         indexFile = uniqBy(indexFile, "id");
-        await this.bucket.upload({ target: indexFileName, json: indexFile });
+        await this.bucket.put({ target: indexFileName, json: indexFile });
     }
     /**
      * List indices in a given domain

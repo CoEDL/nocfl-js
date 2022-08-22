@@ -110,7 +110,7 @@ var Indexer = /** @class */ (function () {
                         idPrefix = _g[_f];
                         indexFile = "".concat(domain_1, "/indices/").concat(className, "/").concat(idPrefix, ".json");
                         indexFiles.push(indexFile);
-                        return [4 /*yield*/, this.bucket.upload({
+                        return [4 /*yield*/, this.bucket.put({
                                 target: indexFile,
                                 json: (0, lodash_1.orderBy)(indices[domain_1][className][idPrefix], "id"),
                             })];
@@ -170,7 +170,7 @@ var Indexer = /** @class */ (function () {
                             indexFile = indexFile.filter(function (i) { return i.id !== id; });
                         }
                         indexFile = (0, lodash_1.uniqBy)(indexFile, "id");
-                        return [4 /*yield*/, this.bucket.upload({ target: indexFileName, json: indexFile })];
+                        return [4 /*yield*/, this.bucket.put({ target: indexFileName, json: indexFile })];
                     case 5:
                         _c.sent();
                         return [2 /*return*/];

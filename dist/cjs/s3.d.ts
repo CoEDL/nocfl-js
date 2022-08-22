@@ -49,26 +49,30 @@ export class Bucket {
     pathExists({ path }: {
         path: any;
     }): Promise<boolean>;
-    upload({ localPath, content, json, target, }: {
+    put({ localPath, content, json, target, }: {
         localPath?: undefined;
         content?: undefined;
         json?: undefined;
         target?: undefined;
     }): Promise<import("@aws-sdk/types").ResponseMetadata | undefined>;
-    download({ target, localPath }: {
+    get({ target, localPath }: {
         target: any;
         localPath: any;
     }): Promise<string | import("@aws-sdk/types").ResponseMetadata>;
     readJSON({ target }: {
         target: any;
     }): Promise<any>;
+    copy({ source, target }: {
+        source: any;
+        target: any;
+    }): Promise<import("@aws-sdk/client-s3").CopyObjectCommandOutput>;
     listObjects({ prefix, startAfter, maxKeys, continuationToken, }: {
         prefix?: undefined;
         startAfter?: undefined;
         maxKeys?: undefined;
         continuationToken?: undefined;
     }): Promise<import("@aws-sdk/client-s3").ListObjectsV2CommandOutput>;
-    removeObjects({ keys, prefix }: {
+    delete({ keys, prefix }: {
         keys?: any[] | undefined;
         prefix?: undefined;
     }): Promise<import("@aws-sdk/types").ResponseMetadata | undefined>;

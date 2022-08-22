@@ -176,7 +176,7 @@ var Bucket = /** @class */ (function () {
             });
         });
     };
-    Bucket.prototype.upload = function (_a) {
+    Bucket.prototype.put = function (_a) {
         var _b = _a.localPath, localPath = _b === void 0 ? undefined : _b, _c = _a.content, content = _c === void 0 ? undefined : _c, _d = _a.json, json = _d === void 0 ? undefined : _d, _e = _a.target, target = _e === void 0 ? undefined : _e;
         return __awaiter(this, void 0, void 0, function () {
             // async function V3SinglePartUpload({ params }) {
@@ -264,7 +264,7 @@ var Bucket = /** @class */ (function () {
             });
         });
     };
-    Bucket.prototype.download = function (_a) {
+    Bucket.prototype.get = function (_a) {
         var e_1, _b;
         var target = _a.target, localPath = _a.localPath;
         return __awaiter(this, void 0, void 0, function () {
@@ -337,10 +337,30 @@ var Bucket = /** @class */ (function () {
             var data;
             return __generator(this, function (_b) {
                 switch (_b.label) {
-                    case 0: return [4 /*yield*/, this.download({ target: target })];
+                    case 0: return [4 /*yield*/, this.get({ target: target })];
                     case 1:
                         data = _b.sent();
                         return [2 /*return*/, JSON.parse(data)];
+                }
+            });
+        });
+    };
+    Bucket.prototype.copy = function (_a) {
+        var source = _a.source, target = _a.target;
+        return __awaiter(this, void 0, void 0, function () {
+            var command;
+            return __generator(this, function (_b) {
+                switch (_b.label) {
+                    case 0:
+                        source = path_1.default.join(this.bucket, source);
+                        target = path_1.default.join(target);
+                        command = new client_s3_1.CopyObjectCommand({
+                            Bucket: this.bucket,
+                            CopySource: source,
+                            Key: target,
+                        });
+                        return [4 /*yield*/, this.client.send(command)];
+                    case 1: return [2 /*return*/, _b.sent()];
                 }
             });
         });
@@ -370,7 +390,7 @@ var Bucket = /** @class */ (function () {
             });
         });
     };
-    Bucket.prototype.removeObjects = function (_a) {
+    Bucket.prototype.delete = function (_a) {
         var _b = _a.keys, keys = _b === void 0 ? [] : _b, _c = _a.prefix, prefix = _c === void 0 ? undefined : _c;
         return __awaiter(this, void 0, void 0, function () {
             var objects, objs, command;
@@ -449,7 +469,7 @@ var Bucket = /** @class */ (function () {
                         if (!(_i < paths_1.length)) return [3 /*break*/, 5];
                         path_2 = paths_1[_i];
                         if (!(path_2.type !== "directory")) return [3 /*break*/, 4];
-                        return [4 /*yield*/, this.upload({
+                        return [4 /*yield*/, this.put({
                                 localPath: path_2.source,
                                 target: path_2.target,
                             })];

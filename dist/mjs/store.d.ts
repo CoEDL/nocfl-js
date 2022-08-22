@@ -5,6 +5,10 @@
  * @property {String} json - a JSON object to store in the file directly
  * @property {String} content - some content to store in the file directly
  * @property {String} target - the target name for the file; this will be set relative to the item path
+ * @property {Boolean} registerFile=true - whether the file should be registered in ro-crate-metadata.json.
+ *  The file will be registered in the hasPart property of the root dataset if there isn't already an entry for the file.
+ * @property {Boolean} version=false - whether the file should be versioned. If true, the existing file will be copied
+ *  to ${file}.v${date as ISO String}.{ext} before the new version is uploaded to the target name
  */
 /**
  * An AWS Credentials Object
@@ -79,6 +83,7 @@ export class Store {
             identifier?: undefined;
         })[];
     };
+    indexer: Indexer;
     /**
      * Check whether the item exists in the storage
      * @return {Boolean}
@@ -133,6 +138,16 @@ export class Store {
         target: string;
     }): Promise<string | import("@aws-sdk/types").ResponseMetadata>;
     /**
+     * Get file versions
+     * @param {Object} params
+     * @param {String} params.target - the file whose versions to retrieve
+     * @return {Array} - versions of the specified file ordered newest to oldest. The file as named (ie without a version
+     *   string will be the first - newest - entry)
+     */
+    listFileVersions({ target }: {
+        target: string;
+    }): any[];
+    /**
      * Get a JSON file from the item on the storage
      * @param {Object} params
      * @param {String} params.localPath - the local path where you want to download the file to
@@ -159,16 +174,20 @@ export class Store {
      * @param {String} params.json - a JSON object to store in the file directly
      * @param {String} params.content - some content to store in the file directly
      * @param {String} params.target - the target name for the file; this will be set relative to the item path
-     * @param {Boolean} params.registerFile = true - the target name for the file; this will be set relative to the item path
+     * @param {Boolean} params.registerFile=true - whether the file should be registered in ro-crate-metadata.json.
+     *  The file will be registered in the hasPart property of the root dataset if there isn't already an entry for the file.
+     * @param {Boolean} params.version=false - whether the file should be versioned. If true, the existing file will be copied
+     *  to ${file}.v${date as ISO String}.{ext} before the new version is uploaded to the target name
      * @param {Transfer[]} params.batch - an array of objects defining content to put into the store where the params
      *  are as for the single case. Uploads will be run 5 at a time.
      */
-    put({ localPath, json, content, target, registerFile, batch, }: {
+    put({ localPath, json, content, target, registerFile, version, batch, }: {
         localPath: string;
         json: string;
         content: string;
         target: string;
         registerFile: boolean;
+        version: boolean;
         batch: Transfer[];
     }): Promise<void>;
     /**
@@ -184,7 +203,7 @@ export class Store {
     /**
      * Delete the item
      */
-    deleteItem(): Promise<import("@aws-sdk/types").ResponseMetadata | undefined>;
+    deleteItem(): Promise<void>;
     /**
      * Recursively walk and list all of the files for the item
      * @return a list of files
@@ -220,6 +239,16 @@ export type Transfer = {
      * - the target name for the file; this will be set relative to the item path
      */
     target: string;
+    /**
+     * =true - whether the file should be registered in ro-crate-metadata.json.
+     * The file will be registered in the hasPart property of the root dataset if there isn't already an entry for the file.
+     */
+    registerFile: boolean;
+    /**
+     * =false - whether the file should be versioned. If true, the existing file will be copied
+     * to ${file}.v${date as ISO String}.{ext} before the new version is uploaded to the target name
+     */
+    version: boolean;
 };
 /**
  * An AWS Credentials Object
@@ -251,3 +280,4 @@ export type Credentials = {
     forcePathStyle?: boolean | undefined;
 };
 import { Bucket } from "./s3.js";
+import { Indexer } from "./indexer.js";

@@ -1,6 +1,6 @@
 // API Docs: https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/clients/client-s3/index.html
 // Developer Guide: docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/welcome.html
-import { S3Client, HeadBucketCommand, HeadObjectCommand, ListBucketsCommand, GetObjectCommand, ListObjectsV2Command, DeleteObjectsCommand, } from "@aws-sdk/client-s3";
+import { S3Client, HeadBucketCommand, HeadObjectCommand, ListBucketsCommand, GetObjectCommand, CopyObjectCommand, ListObjectsV2Command, DeleteObjectsCommand, } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import fsExtra from "fs-extra";
@@ -81,7 +81,7 @@ export class Bucket {
     async pathExists({ path }) {
         return (await this.stat({ path }))?.$metadata?.httpStatusCode === 200 ? true : false;
     }
-    async upload({ localPath = undefined, content = undefined, json = undefined, target = undefined, }) {
+    async put({ localPath = undefined, content = undefined, json = undefined, target = undefined, }) {
         // check that key length is within the limits
         if (target.length > maxFileNameLength) {
             console.error(`The target name '${target}' exceeds the max name length allowed by S3. This file can't be uploaded with that name.`);
@@ -164,7 +164,7 @@ export class Bucket {
         //     };
         // }
     }
-    async download({ target, localPath }) {
+    async get({ target, localPath }) {
         const downloadParams = { Bucket: this.bucket, Key: target };
         const command = new GetObjectCommand(downloadParams);
         let response = await this.client.send(command);
@@ -190,8 +190,18 @@ export class Bucket {
         }
     }
     async readJSON({ target }) {
-        let data = await this.download({ target });
+        let data = await this.get({ target });
         return JSON.parse(data);
+    }
+    async copy({ source, target }) {
+        source = path.join(this.bucket, source);
+        target = path.join(target);
+        const command = new CopyObjectCommand({
+            Bucket: this.bucket,
+            CopySource: source,
+            Key: target,
+        });
+        return await this.client.send(command);
     }
     async listObjects({ prefix = undefined, startAfter = undefined, maxKeys = undefined, continuationToken = undefined, }) {
         const params = {
@@ -208,7 +218,7 @@ export class Bucket {
         const command = new ListObjectsV2Command(params);
         return await this.client.send(command);
     }
-    async removeObjects({ keys = [], prefix = undefined }) {
+    async delete({ keys = [], prefix = undefined }) {
         if (prefix) {
             let objects = (await this.listObjects({ prefix })).Contents;
             if (objects)
@@ -228,7 +238,7 @@ export class Bucket {
         await walk({ root: localPath, folder: localPath });
         for (let path of paths) {
             if (path.type !== "directory") {
-                await this.upload({
+                await this.put({
                     localPath: path.source,
                     target: path.target,
                 });
