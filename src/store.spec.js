@@ -1,5 +1,6 @@
 import { S3, Bucket } from "./s3.js";
 import { Store } from "./store.js";
+import { Indexer } from "./indexer.js";
 import fsExtra from "fs-extra";
 const { pathExists, remove, readJSON, readFile, stat: fileStat } = fsExtra;
 import path from "path";
@@ -16,6 +17,7 @@ describe("Test storage actions", () => {
         region: "us-west-1",
     };
     const bucket = new Bucket(credentials);
+    const indexer = new Indexer({ credentials });
     const domain = "nyingarn.net";
 
     afterAll(async () => {});
@@ -194,7 +196,7 @@ describe("Test storage actions", () => {
 
         await bucket.delete({ prefix: store.getItemPath() });
     });
-    test("it should be able to upload / download a file", async () => {
+    test("it should be able to upload / download a file and patch the index", async () => {
         const file = "s3.js";
         const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
@@ -207,6 +209,12 @@ describe("Test storage actions", () => {
         await store.get({ target: file, localPath: path.join("/tmp", file) });
         expect(await pathExists(path.join("/tmp", file))).toBe(true);
         await remove(path.join("/tmp", file));
+
+        // check the index has been patched
+        let index = await indexer.getIndex({ domain, className: "item", prefix: "t" });
+        expect(index).toEqual([
+            { domain: "nyingarn.net", className: "item", id: "test", splay: 1 },
+        ]);
 
         await bucket.delete({ prefix: store.getItemPath() });
         await remove(path.join("/tmp", file));
@@ -355,6 +363,11 @@ describe("Test storage actions", () => {
         let resources = await store.listResources();
         expect(resources.length).toEqual(14);
 
+        let index = await indexer.getIndex({ domain, className: "item", prefix: "t" });
+        expect(index).toEqual([
+            { domain: "nyingarn.net", className: "item", id: "test", splay: 1 },
+        ]);
+
         await bucket.delete({ prefix: store.getItemPath() });
     });
     test("it should be able to upload / download a file to a subpath (not just the root)", async () => {
@@ -500,12 +513,23 @@ describe("Test storage actions", () => {
         let resources2 = await store2.listResources();
         expect(resources2.length).toEqual(3);
 
+        let index = await indexer.getIndex({ domain, className: "item", prefix: "t" });
+        expect(index).toEqual([
+            { domain: "nyingarn.net", className: "item", id: "test", splay: 1 },
+            { domain: "nyingarn.net", className: "item", id: "test2", splay: 1 },
+        ]);
         await store.deleteItem();
         let exists = await store.itemExists();
         expect(exists).toBe(false);
 
         resources2 = await store2.listResources();
         expect(resources2.length).toEqual(3);
+
+        // check the index has been patched
+        index = await indexer.getIndex({ domain, className: "item", prefix: "t" });
+        expect(index).toEqual([
+            { domain: "nyingarn.net", className: "item", id: "test2", splay: 1 },
+        ]);
 
         store2.deleteItem();
         exists = await store.itemExists();

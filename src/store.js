@@ -4,8 +4,9 @@ const { createReadStream } = fsExtra;
 import crypto from "crypto";
 import * as nodePath from "path";
 import hasha from "hasha";
+import { Indexer } from "./indexer.js";
 import lodashPkg from "lodash";
-const { isString, isUndefined, isArray, chunk } = lodashPkg;
+const { isString, isArray, chunk } = lodashPkg;
 
 const specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
 
@@ -80,9 +81,10 @@ export class Store {
         this.id = id;
         this.className = className;
         this.domain = domain;
-        this.itemPath = domain
-            ? `${domain.toLowerCase()}/${className.toLowerCase()}/${id.slice(0, splay)}/${id}`
-            : `${className.toLowerCase()}/${id.slice(0, splay)}/${id}`;
+        this.itemPath = `${domain.toLowerCase()}/${className.toLowerCase()}/${id.slice(
+            0,
+            splay
+        )}/${id}`;
         this.splay = splay;
         this.roCrateFile = nodePath.join(this.itemPath, "ro-crate-metadata.json");
         this.inventoryFile = nodePath.join(this.itemPath, "nocfl.inventory.json");
@@ -119,6 +121,7 @@ export class Store {
                 },
             ],
         };
+        this.indexer = new Indexer({ credentials });
     }
 
     /**
@@ -206,6 +209,15 @@ export class Store {
                 itemPath: this.itemPath,
                 splay: this.splay,
             },
+        });
+
+        // patch the index file
+        await this.indexer.patchIndex({
+            action: "PUT",
+            domain: this.domain,
+            className: this.className,
+            id: this.id,
+            splay: this.splay,
         });
     }
 
@@ -299,7 +311,7 @@ export class Store {
             }
         }
 
-        // console.log("uploading crate", crate["@graph"]);
+        // update the ro crate file
         await this.bucket.put({
             target: this.roCrateFile,
             json: crate,
@@ -321,8 +333,6 @@ export class Store {
             }
             let s3Target = nodePath.join(this.itemPath, target);
             await this.bucket.put({ localPath, json, content, target: s3Target });
-
-            // await updateCrateMetadata({ target, registerFile });
         }
 
         async function updateCrateMetadata({ graph, target, registerFile }) {
@@ -412,7 +422,16 @@ export class Store {
         if (!(await this.itemExists())) {
             throw new Error(`The item doesn't exist`);
         }
-        return await this.bucket.delete({ prefix: `${this.itemPath}/` });
+        await this.bucket.delete({ prefix: `${this.itemPath}/` });
+
+        // patch the index file
+        await this.indexer.patchIndex({
+            action: "DELETE",
+            domain: this.domain,
+            className: this.className,
+            id: this.id,
+            splay: this.splay,
+        });
     }
 
     /**
