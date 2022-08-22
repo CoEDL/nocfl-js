@@ -105,7 +105,7 @@ export class Bucket {
         return (await this.stat({ path }))?.$metadata?.httpStatusCode === 200 ? true : false;
     }
 
-    async upload({
+    async put({
         localPath = undefined,
         content = undefined,
         json = undefined,
@@ -205,7 +205,7 @@ export class Bucket {
         // }
     }
 
-    async download({ target, localPath }) {
+    async get({ target, localPath }) {
         const downloadParams = { Bucket: this.bucket, Key: target };
         const command = new GetObjectCommand(downloadParams);
         let response = await this.client.send(command);
@@ -233,7 +233,7 @@ export class Bucket {
     }
 
     async readJSON({ target }) {
-        let data = await this.download({ target });
+        let data = await this.get({ target });
         return JSON.parse(data);
     }
 
@@ -254,7 +254,7 @@ export class Bucket {
         return await this.client.send(command);
     }
 
-    async removeObjects({ keys = [], prefix = undefined }) {
+    async delete({ keys = [], prefix = undefined }) {
         if (prefix) {
             let objects = (await this.listObjects({ prefix })).Contents;
             if (objects) keys = objects.map((entry) => entry.Key);
@@ -275,7 +275,7 @@ export class Bucket {
 
         for (let path of paths) {
             if (path.type !== "directory") {
-                await this.upload({
+                await this.put({
                     localPath: path.source,
                     target: path.target,
                 });

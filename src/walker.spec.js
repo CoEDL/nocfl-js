@@ -26,7 +26,7 @@ describe(`Test walking the repository - 1 domain`, () => {
         });
     });
     afterAll(async () => {
-        await bucket.removeObjects({ prefix: domain });
+        await bucket.delete({ prefix: domain });
     });
     it("Should find all items in the repository", async () => {
         const walker = new Walker({ credentials });
@@ -57,7 +57,7 @@ describe(`Test walking the repository - 3 domains`, () => {
     });
     afterAll(async () => {
         for (let domain of domains) {
-            await bucket.removeObjects({ prefix: domain });
+            await bucket.delete({ prefix: domain });
         }
     });
     it("Should find all items in the repository", async () => {

@@ -27,7 +27,7 @@ describe(`Test managing index files - 1 domain`, () => {
         });
     });
     afterEach(async () => {
-        await bucket.removeObjects({ prefix: domain });
+        await bucket.delete({ prefix: domain });
     });
     it("Should find all items in the repository and create index files to them", async () => {
         const indexer = new Indexer({ credentials });

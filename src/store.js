@@ -187,17 +187,17 @@ export class Store {
             throw new Error(`An item with that identifier already exists`);
         }
         let roCrateFileHash = hasha(JSON.stringify(this.roCrateSkeleton));
-        await this.bucket.upload({
+        await this.bucket.put({
             target: this.roCrateFile,
             json: this.roCrateSkeleton,
         });
 
-        await this.bucket.upload({
+        await this.bucket.put({
             target: this.inventoryFile,
             json: { content: { "ro-crate-metadata.json": roCrateFileHash } },
         });
 
-        await this.bucket.upload({
+        await this.bucket.put({
             target: this.identifierFile,
             json: {
                 id: this.id,
@@ -218,7 +218,7 @@ export class Store {
     async get({ localPath, target }) {
         target = nodePath.join(this.itemPath, target);
 
-        return await this.bucket.download({ target, localPath });
+        return await this.bucket.get({ target, localPath });
     }
 
     /**
@@ -300,7 +300,7 @@ export class Store {
         }
 
         // console.log("uploading crate", crate["@graph"]);
-        await this.bucket.upload({
+        await this.bucket.put({
             target: this.roCrateFile,
             json: crate,
         });
@@ -320,7 +320,7 @@ export class Store {
                 await this.__updateInventory({ target, hash: hasha(content) });
             }
             let s3Target = nodePath.join(this.itemPath, target);
-            await this.bucket.upload({ localPath, json, content, target: s3Target });
+            await this.bucket.put({ localPath, json, content, target: s3Target });
 
             // await updateCrateMetadata({ target, registerFile });
         }
@@ -395,13 +395,13 @@ export class Store {
             }
             if (isString(target)) target = [target];
             let keys = target.map((t) => nodePath.join(this.itemPath, t));
-            return await this.bucket.removeObjects({ keys });
+            return await this.bucket.delete({ keys });
         } else if (prefix) {
             if (!isString(prefix)) {
                 throw new Error(`prefix must be a string`);
             }
             prefix = nodePath.join(this.itemPath, prefix);
-            return await this.bucket.removeObjects({ prefix });
+            return await this.bucket.delete({ prefix });
         }
     }
 
@@ -412,7 +412,7 @@ export class Store {
         if (!(await this.itemExists())) {
             throw new Error(`The item doesn't exist`);
         }
-        return await this.bucket.removeObjects({ prefix: `${this.itemPath}/` });
+        return await this.bucket.delete({ prefix: `${this.itemPath}/` });
     }
 
     /**
@@ -453,9 +453,9 @@ export class Store {
      * @return a list of files
      */
     async __updateInventory({ target, hash }) {
-        let inventory = JSON.parse(await this.bucket.download({ target: this.inventoryFile }));
+        let inventory = JSON.parse(await this.bucket.get({ target: this.inventoryFile }));
         inventory.content[target] = hash;
-        await this.bucket.upload({
+        await this.bucket.put({
             target: this.inventoryFile,
             json: inventory,
         });

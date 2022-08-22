@@ -47,7 +47,7 @@ describe("Test S3 actions", () => {
         }
     });
     test("it should be able to upload a file to the bucket root and then remove it", async () => {
-        let data = await bucket.upload({
+        let data = await bucket.put({
             localPath: path.join(__dirname, "./s3.js"),
             target: "s3.js",
         });
@@ -55,53 +55,53 @@ describe("Test S3 actions", () => {
         data = (await bucket.listObjects({})).Contents;
         expect(data.length).toBe(1);
 
-        data = await bucket.removeObjects({
+        data = await bucket.delete({
             keys: ["s3.js"],
         });
         expect(data.httpStatusCode).toEqual(200);
     });
     test("it should be able to write a string to a bucket object", async () => {
-        let response = await bucket.upload({
+        let response = await bucket.put({
             target: "file.txt",
             content: "some text",
         });
         expect(response.httpStatusCode).toEqual(200);
 
-        response = await bucket.download({
+        response = await bucket.get({
             target: "file.txt",
             localPath: path.join("/tmp", "s3-testing"),
         });
         let content = await readFile(path.join("/tmp", "s3-testing"));
         expect(content.toString()).toEqual("some text");
 
-        response = await bucket.removeObjects({
+        response = await bucket.delete({
             keys: ["file.txt"],
         });
         expect(response.httpStatusCode).toEqual(200);
         await remove(path.join("/tmp", "s3-testing"));
     });
     test("it should be able to write json to a bucket object", async () => {
-        let response = await bucket.upload({
+        let response = await bucket.put({
             target: "file.txt",
             json: { property: "value" },
         });
         expect(response.httpStatusCode).toEqual(200);
 
-        response = await bucket.download({
+        response = await bucket.get({
             target: "file.txt",
             localPath: path.join("/tmp", "s3-testing"),
         });
         let content = await readFile(path.join("/tmp", "s3-testing"));
         expect(JSON.parse(content.toString())).toEqual({ property: "value" });
 
-        response = await bucket.removeObjects({
+        response = await bucket.delete({
             keys: ["file.txt"],
         });
         expect(response.httpStatusCode).toEqual(200);
         await remove(path.join("/tmp", "s3-testing"));
     });
     test("it should be able to upload a file to a bucket (pseudo) folder and then remove it", async () => {
-        let data = await bucket.upload({
+        let data = await bucket.put({
             localPath: path.join(__dirname, "./s3.js"),
             target: "folder/s3.js",
         });
@@ -113,19 +113,19 @@ describe("Test S3 actions", () => {
         ).Contents;
         expect(data[0].Key).toBe("folder/s3.js");
 
-        data = await bucket.removeObjects({
+        data = await bucket.delete({
             keys: ["folder/s3.js"],
         });
     });
     test("it should be able to download an object from the bucket root", async () => {
         // test downloading an object at the bucket root
-        let response = await bucket.upload({
+        let response = await bucket.put({
             localPath: path.join(__dirname, "./s3.js"),
             target: "s3.js",
         });
         expect(response.httpStatusCode).toEqual(200);
 
-        response = await bucket.download({
+        response = await bucket.get({
             target: "s3.js",
             localPath: path.join("/tmp", "s3-testing"),
         });
@@ -139,7 +139,7 @@ describe("Test S3 actions", () => {
             algorithm: "md5",
         });
         expect(originalHash).toEqual(newHash);
-        response = await bucket.removeObjects({
+        response = await bucket.delete({
             keys: ["s3.js"],
         });
         expect(response.httpStatusCode).toEqual(200);
@@ -147,20 +147,20 @@ describe("Test S3 actions", () => {
     });
     test("it should be able to download an object from the bucket root and return the data", async () => {
         // test downloading an object at the bucket root
-        let data = await bucket.upload({
+        let data = await bucket.put({
             localPath: path.join(__dirname, "./s3.js"),
             target: "s3.js",
         });
         expect(data.httpStatusCode).toEqual(200);
 
-        data = await bucket.download({
+        data = await bucket.get({
             target: "s3.js",
         });
         expect(data).toBeTruthy;
     });
     test("it should be able to download a json file and return the data", async () => {
         // test downloading an object at the bucket root
-        let data = await bucket.upload({
+        let data = await bucket.put({
             json: { property: "value" },
             target: "s3.js",
         });
@@ -173,18 +173,18 @@ describe("Test S3 actions", () => {
     });
     test("it should be able to download an object from some nested path and maintain that path locally", async () => {
         //  test downloading an object at a path - ensure we keep the path locally
-        let data = await bucket.upload({
+        let data = await bucket.put({
             localPath: path.join(__dirname, "./s3.js"),
             target: "a/b/c/s3.js",
         });
         expect(data.httpStatusCode).toEqual(200);
 
-        data = await bucket.download({
+        data = await bucket.get({
             target: "a/b/c/s3.js",
             localPath: path.join(__dirname, "..", "s3-testing"),
         });
         expect(data.httpStatusCode).toEqual(200);
-        data = await bucket.removeObjects({
+        data = await bucket.delete({
             keys: ["a/b/c/s3.js"],
         });
         expect(data.httpStatusCode).toEqual(200);
@@ -195,7 +195,7 @@ describe("Test S3 actions", () => {
         });
         expect(data).toBeFalse;
 
-        await bucket.upload({
+        await bucket.put({
             localPath: path.join(__dirname, "./s3.js"),
             target: "folder/s3.js",
         });
@@ -204,7 +204,7 @@ describe("Test S3 actions", () => {
         });
         expect(data.$metadata.httpStatusCode).toEqual(200);
 
-        await bucket.removeObjects({
+        await bucket.delete({
             keys: ["folder/s3.js"],
         });
     });
@@ -218,13 +218,13 @@ describe("Test S3 actions", () => {
         });
         expect(data["$metadata"].httpStatusCode).toEqual(200);
 
-        data = await bucket.removeObjects({
+        data = await bucket.delete({
             prefix: "src",
         });
         let content = await bucket.listObjects({});
     });
     test(`it should get a presigned url to an object`, async () => {
-        let data = await bucket.upload({
+        let data = await bucket.put({
             target: "file.txt",
             json: { property: "value" },
         });
@@ -235,6 +235,6 @@ describe("Test S3 actions", () => {
             "http://localhost:10000/repository/file.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256"
         );
 
-        await bucket.removeObjects({ keys: ["file.txt"] });
+        await bucket.delete({ keys: ["file.txt"] });
     });
 });
