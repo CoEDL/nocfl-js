@@ -53,7 +53,7 @@ describe("Test S3 actions", () => {
         });
         expect(data.httpStatusCode).toEqual(200);
         data = (await bucket.listObjects({})).Contents;
-        expect(data.length).toBe(1);
+        expect(data.length).toBeGreaterThanOrEqual(1);
 
         data = await bucket.delete({
             keys: ["s3.js"],
@@ -115,6 +115,27 @@ describe("Test S3 actions", () => {
 
         data = await bucket.delete({
             keys: ["folder/s3.js"],
+        });
+    });
+    test("it should be able to upload a file and copy it", async () => {
+        let data = await bucket.put({
+            localPath: path.join(__dirname, "./s3.js"),
+            target: "s3.js",
+        });
+        expect(data.httpStatusCode).toEqual(200);
+        data = (await bucket.listObjects({})).Contents;
+
+        let response = await bucket.copy({ source: "s3.js", target: "s3.2.js" });
+        expect(response.$metadata.httpStatusCode).toEqual(200);
+        let objects = await bucket.listObjects({});
+        expect(
+            objects.Contents.filter((c) => c.Key.match(/s3/))
+                .map((c) => c.Key)
+                .sort()
+        ).toEqual(["s3.2.js", "s3.js"]);
+
+        data = await bucket.delete({
+            keys: ["s3.js", "s3.2.js"],
         });
     });
     test("it should be able to download an object from the bucket root", async () => {

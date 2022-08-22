@@ -7,6 +7,7 @@ import {
     ListBucketsCommand,
     GetObjectCommand,
     PutObjectCommand,
+    CopyObjectCommand,
     ListObjectsV2Command,
     DeleteObjectsCommand,
 } from "@aws-sdk/client-s3";
@@ -235,6 +236,17 @@ export class Bucket {
     async readJSON({ target }) {
         let data = await this.get({ target });
         return JSON.parse(data);
+    }
+
+    async copy({ source, target }) {
+        source = path.join(this.bucket, source);
+        target = path.join(target);
+        const command = new CopyObjectCommand({
+            Bucket: this.bucket,
+            CopySource: source,
+            Key: target,
+        });
+        return await this.client.send(command);
     }
 
     async listObjects({

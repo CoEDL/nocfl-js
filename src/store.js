@@ -17,6 +17,10 @@ const specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
  * @property {String} json - a JSON object to store in the file directly
  * @property {String} content - some content to store in the file directly
  * @property {String} target - the target name for the file; this will be set relative to the item path
+ * @property {Boolean} registerFile=true - whether the file should be registered in ro-crate-metadata.json.
+ *  The file will be registered in the hasPart property of the root dataset if there isn't already an entry for the file.
+ * @property {Boolean} version=false - whether the file should be versioned. If true, the existing file will be copied
+ *  to ${file}.v${date as ISO String}.{ext} before the new version is uploaded to the target name
  */
 
 /**
@@ -229,8 +233,21 @@ export class Store {
      */
     async get({ localPath, target }) {
         target = nodePath.join(this.itemPath, target);
-
         return await this.bucket.get({ target, localPath });
+    }
+
+    /**
+     * Get file versions
+     * @param {Object} params
+     * @param {String} params.target - the file whose versions to retrieve
+     * @return {Array} - versions of the specified file ordered newest to oldest. The file as named (ie without a version
+     *   string will be the first - newest - entry)
+     */
+    async listFileVersions({ target }) {
+        target = nodePath.basename(target, nodePath.extname(target));
+        let files = await this.bucket.listObjects({ prefix: nodePath.join(this.itemPath, target) });
+        let versions = files.Contents.map((c) => c.Key).sort();
+        return [...versions.slice(1), versions[0]].reverse();
     }
 
     /**
@@ -261,7 +278,10 @@ export class Store {
      * @param {String} params.json - a JSON object to store in the file directly
      * @param {String} params.content - some content to store in the file directly
      * @param {String} params.target - the target name for the file; this will be set relative to the item path
-     * @param {Boolean} params.registerFile = true - the target name for the file; this will be set relative to the item path
+     * @param {Boolean} params.registerFile=true - whether the file should be registered in ro-crate-metadata.json.
+     *  The file will be registered in the hasPart property of the root dataset if there isn't already an entry for the file.
+     * @param {Boolean} params.version=false - whether the file should be versioned. If true, the existing file will be copied
+     *  to ${file}.v${date as ISO String}.{ext} before the new version is uploaded to the target name
      * @param {Transfer[]} params.batch - an array of objects defining content to put into the store where the params
      *  are as for the single case. Uploads will be run 5 at a time.
      */
@@ -271,6 +291,7 @@ export class Store {
         content = undefined,
         target = undefined,
         registerFile = true,
+        version = false,
         batch = [],
     }) {
         if (!(await this.itemExists())) {
@@ -286,7 +307,7 @@ export class Store {
                 await Promise.all(transfers);
             }
         } else {
-            await transfer({ localPath, json, content, target, registerFile });
+            await transfer({ localPath, json, content, target, registerFile, version });
         }
 
         // get the crate file
@@ -317,7 +338,7 @@ export class Store {
             json: crate,
         });
 
-        async function transfer({ localPath, json, content, target, registerFile }) {
+        async function transfer({ localPath, json, content, target, registerFile, version }) {
             if (specialFiles.includes(target)) {
                 throw new Error(
                     `You can't upload a file called '${target} as that's a special file used by the system`
@@ -332,7 +353,28 @@ export class Store {
                 await this.__updateInventory({ target, hash: hasha(content) });
             }
             let s3Target = nodePath.join(this.itemPath, target);
-            await this.bucket.put({ localPath, json, content, target: s3Target });
+            if (version) {
+                const date = new Date().toISOString();
+                let versionFile = nodePath.join(
+                    this.itemPath,
+                    `${nodePath.basename(
+                        target,
+                        nodePath.extname(target)
+                    )}.v${date}${nodePath.extname(target)}`
+                );
+                try {
+                    await this.bucket.copy({ source: s3Target, target: versionFile });
+                } catch (error) {
+                    if (error.message === "The specified key does not exist.") {
+                        // no source file available - that's ok - ignore it - nothing to version yet
+                    } else {
+                        throw new Error(error.message);
+                    }
+                }
+                await this.bucket.put({ localPath, json, content, target: s3Target });
+            } else {
+                await this.bucket.put({ localPath, json, content, target: s3Target });
+            }
         }
 
         async function updateCrateMetadata({ graph, target, registerFile }) {

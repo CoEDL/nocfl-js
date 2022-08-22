@@ -22,10 +22,6 @@ describe("Test storage actions", () => {
 
     afterAll(async () => {});
 
-    test("it should be able to init a connection to the storage", () => {
-        const store = new Store({ domain, className: "item", id: "test", credentials, bucket });
-        expect(store.bucket).toBeDefined;
-    });
     test("it should not be able to init a connection to the storage", () => {
         try {
             const store = new Store({});
@@ -200,19 +196,27 @@ describe("Test storage actions", () => {
 
         await bucket.delete({ prefix: store.getItemPath() });
     });
-    test("it should be able to upload / download a file and patch the index", async () => {
+    test("it should be able to upload a file and version it", async () => {
         const file = "s3.js";
         const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
 
-        await store.put({ localPath: path.join(__dirname, file), target: file });
+        await store.put({ localPath: path.join(__dirname, file), target: file, version: true });
         let resources = await store.listResources();
         expect(resources.length).toEqual(4);
-        expect(getFile({ resources, file }).Key).toEqual("s3.js");
 
-        await store.get({ target: file, localPath: path.join("/tmp", file) });
-        expect(await pathExists(path.join("/tmp", file))).toBe(true);
-        await remove(path.join("/tmp", file));
+        await store.put({ localPath: path.join(__dirname, file), target: file, version: true });
+        resources = await store.listResources();
+        expect(resources.filter((r) => r.Key.match(/^s3/)).length).toEqual(2);
+        expect(resources.length).toEqual(5);
+
+        await store.put({ localPath: path.join(__dirname, file), target: file, version: true });
+
+        let versions = await store.listFileVersions({ target: file });
+        expect(versions.length).toEqual(3);
+        expect(versions[0]).toEqual("nyingarn.net/item/t/test/s3.js");
+        expect(versions[1]).toMatch(/.*\/s3.v.*\.js/);
+        expect(versions[2]).toMatch(/.*\/s3.v.*\.js/);
 
         await bucket.delete({ prefix: store.getItemPath() });
         await remove(path.join("/tmp", file));
