@@ -21,20 +21,27 @@ export class Store {
     /**
      * Interact with a store in an S3 bucket
      * @constructor
-     * @param {Credentials} credentials - the AWS credentials to use for the connection
-     * @param {string} className - the class name of the item being operated on - must match: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$
-     * @param {string} id - the id of the item being operated on - must match: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$
-     * @param {string} domain - provide this to prefix the paths by domain
-     * @param {number} [splay=1] - the number of characters (from the start of the identifer) when converting the id to a path
+     * @param {Object} params
+     * @param {Credentials} params.credentials - the AWS credentials to use for the connection
+     * @param {string} params.className - the class name of the item being operated on - must match: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$
+     * @param {string} params.id - the id of the item being operated on - must match: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$
+     * @param {string} params.domain - provide this to prefix the paths by domain
+     * @param {number} [params.splay=1] - the number of characters (from the start of the identifer) when converting the id to a path
      */
-    constructor({ domain, className, id, credentials, splay }: Credentials);
-    credentials: any;
+    constructor({ domain, className, id, credentials, splay }: {
+        credentials: Credentials;
+        className: string;
+        id: string;
+        domain: string;
+        splay?: number | undefined;
+    });
+    credentials: Credentials;
     bucket: Bucket;
-    id: any;
-    className: any;
-    domain: any;
+    id: string;
+    className: string;
+    domain: string;
     itemPath: string;
-    splay: any;
+    splay: number;
     roCrateFile: string;
     inventoryFile: string;
     identifierFile: string;
@@ -94,16 +101,22 @@ export class Store {
     getItemInventory(): Object;
     /**
      * Check whether the path exists in the storage
-     * @param {String} path - the path of the file to check - this is relative to the item root
+     * @param {Object} params
+     * @param {String} params.path - the path of the file to check - this is relative to the item root
      * @return {Boolean}
      */
-    pathExists({ path }: string): boolean;
+    pathExists({ path }: {
+        path: string;
+    }): boolean;
     /**
      * Return the file stat
-     * @param {String} path - the path of the file to stat- this is relative to the item root
+     * @param {Object} params
+     * @param {String} params.path - the path of the file to stat- this is relative to the item root
      * @return {Boolean}
      */
-    stat({ path }: string): boolean;
+    stat({ path }: {
+        path: string;
+    }): boolean;
     /**
      * Create the item in the storage
      * @return {Boolean}
@@ -111,38 +124,63 @@ export class Store {
     createItem(): boolean;
     /**
      * Get a file from the item on the storage
-     * @param {String} localPath - the local path where you want to download the file to
-     * @param {String} target - the file on the storage, relative to the item path, that you want to download
+     * @param {Object} params
+     * @param {String} params.localPath - the local path where you want to download the file to
+     * @param {String} params.target - the file on the storage, relative to the item path, that you want to download
      */
-    get({ localPath, target }: string): Promise<string | import("@aws-sdk/types").ResponseMetadata>;
+    get({ localPath, target }: {
+        localPath: string;
+        target: string;
+    }): Promise<string | import("@aws-sdk/types").ResponseMetadata>;
     /**
      * Get a JSON file from the item on the storage
-     * @param {String} localPath - the local path where you want to download the file to
-     * @param {String} target - the file on the storage, relative to the item path, that you want to download
+     * @param {Object} params
+     * @param {String} params.localPath - the local path where you want to download the file to
+     * @param {String} params.target - the file on the storage, relative to the item path, that you want to download
      */
-    getJSON({ localPath, target }: string): Promise<any>;
+    getJSON({ localPath, target }: {
+        localPath: string;
+        target: string;
+    }): Promise<any>;
     /**
      * Get a presigned link to the file
-     * @param {String} target - the file on the storage, relative to the item path, that you want the url for
+     * @param {Object} params
+     * @param {String} params.target - the file on the storage, relative to the item path, that you want the url for
+     * @param {String} params.download - get link that can be used to trigger a direct file download
      */
-    getPresignedUrl({ target, download }: string): Promise<string>;
+    getPresignedUrl({ target, download }: {
+        target: string;
+        download: string;
+    }): Promise<string>;
     /**
      * Put a file into the item on the storage
-     * @param {String} localPath - the path to the file locally that you want to upload to the item folder
-     * @param {String} json - a JSON object to store in the file directly
-     * @param {String} content - some content to store in the file directly
-     * @param {String} target - the target name for the file; this will be set relative to the item path
-     * @param {Boolean} registerFile = true - the target name for the file; this will be set relative to the item path
-     * @param {Transfer[]} batch - an array of objects defining content to put into the store where the params
+     * @param {Object} params
+     * @param {String} params.localPath - the path to the file locally that you want to upload to the item folder
+     * @param {String} params.json - a JSON object to store in the file directly
+     * @param {String} params.content - some content to store in the file directly
+     * @param {String} params.target - the target name for the file; this will be set relative to the item path
+     * @param {Boolean} params.registerFile = true - the target name for the file; this will be set relative to the item path
+     * @param {Transfer[]} params.batch - an array of objects defining content to put into the store where the params
      *  are as for the single case. Uploads will be run 5 at a time.
      */
-    put({ localPath, json, content, target, registerFile, batch, }: string): Promise<void>;
+    put({ localPath, json, content, target, registerFile, batch, }: {
+        localPath: string;
+        json: string;
+        content: string;
+        target: string;
+        registerFile: boolean;
+        batch: Transfer[];
+    }): Promise<void>;
     /**
      * Remove a file from an item in the storage
-     * @param {String|Array.<String>} [target] - the target name for the file or array of target files; this will be set relative to the item path
-     * @param {String} [prefix] - file prefix; this will be set relative to the item path
+     * @param {Object} params
+     * @param {String|Array.<String>} [params.target] - the target name for the file or array of target files; this will be set relative to the item path
+     * @param {String} [params.prefix] - file prefix; this will be set relative to the item path
      */
-    delete({ target, prefix }?: string | string[] | undefined): Promise<import("@aws-sdk/types").ResponseMetadata | undefined>;
+    delete({ target, prefix }: {
+        target?: string | string[] | undefined;
+        prefix?: string | undefined;
+    }): Promise<import("@aws-sdk/types").ResponseMetadata | undefined>;
     /**
      * Delete the item
      */
@@ -155,8 +193,9 @@ export class Store {
     /**
      * Update the file inventory
      * @private
-     * @param {String} target - the file on the storage, relative to the item path
-     * @param {String} hash - the hash (checksum) of the file
+     * @param {Object} params
+     * @param {String} params.target - the file on the storage, relative to the item path
+     * @param {String} params.hash - the hash (checksum) of the file
      * @return a list of files
      */
     private __updateInventory;

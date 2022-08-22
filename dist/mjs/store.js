@@ -30,11 +30,12 @@ export class Store {
     /**
      * Interact with a store in an S3 bucket
      * @constructor
-     * @param {Credentials} credentials - the AWS credentials to use for the connection
-     * @param {string} className - the class name of the item being operated on - must match: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$
-     * @param {string} id - the id of the item being operated on - must match: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$
-     * @param {string} domain - provide this to prefix the paths by domain
-     * @param {number} [splay=1] - the number of characters (from the start of the identifer) when converting the id to a path
+     * @param {Object} params
+     * @param {Credentials} params.credentials - the AWS credentials to use for the connection
+     * @param {string} params.className - the class name of the item being operated on - must match: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$
+     * @param {string} params.id - the id of the item being operated on - must match: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$
+     * @param {string} params.domain - provide this to prefix the paths by domain
+     * @param {number} [params.splay=1] - the number of characters (from the start of the identifer) when converting the id to a path
      */
     constructor({ domain = undefined, className, id, credentials, splay = 1 }) {
         if (!id)
@@ -144,7 +145,8 @@ export class Store {
     }
     /**
      * Check whether the path exists in the storage
-     * @param {String} path - the path of the file to check - this is relative to the item root
+     * @param {Object} params
+     * @param {String} params.path - the path of the file to check - this is relative to the item root
      * @return {Boolean}
      */
     async pathExists({ path }) {
@@ -153,7 +155,8 @@ export class Store {
     }
     /**
      * Return the file stat
-     * @param {String} path - the path of the file to stat- this is relative to the item root
+     * @param {Object} params
+     * @param {String} params.path - the path of the file to stat- this is relative to the item root
      * @return {Boolean}
      */
     async stat({ path }) {
@@ -190,8 +193,9 @@ export class Store {
     }
     /**
      * Get a file from the item on the storage
-     * @param {String} localPath - the local path where you want to download the file to
-     * @param {String} target - the file on the storage, relative to the item path, that you want to download
+     * @param {Object} params
+     * @param {String} params.localPath - the local path where you want to download the file to
+     * @param {String} params.target - the file on the storage, relative to the item path, that you want to download
      */
     async get({ localPath, target }) {
         target = nodePath.join(this.itemPath, target);
@@ -199,15 +203,18 @@ export class Store {
     }
     /**
      * Get a JSON file from the item on the storage
-     * @param {String} localPath - the local path where you want to download the file to
-     * @param {String} target - the file on the storage, relative to the item path, that you want to download
+     * @param {Object} params
+     * @param {String} params.localPath - the local path where you want to download the file to
+     * @param {String} params.target - the file on the storage, relative to the item path, that you want to download
      */
     async getJSON({ localPath, target }) {
         return JSON.parse(await this.get({ localPath, target }));
     }
     /**
      * Get a presigned link to the file
-     * @param {String} target - the file on the storage, relative to the item path, that you want the url for
+     * @param {Object} params
+     * @param {String} params.target - the file on the storage, relative to the item path, that you want the url for
+     * @param {String} params.download - get link that can be used to trigger a direct file download
      */
     async getPresignedUrl({ target, download }) {
         target = nodePath.join(this.itemPath, target);
@@ -215,12 +222,13 @@ export class Store {
     }
     /**
      * Put a file into the item on the storage
-     * @param {String} localPath - the path to the file locally that you want to upload to the item folder
-     * @param {String} json - a JSON object to store in the file directly
-     * @param {String} content - some content to store in the file directly
-     * @param {String} target - the target name for the file; this will be set relative to the item path
-     * @param {Boolean} registerFile = true - the target name for the file; this will be set relative to the item path
-     * @param {Transfer[]} batch - an array of objects defining content to put into the store where the params
+     * @param {Object} params
+     * @param {String} params.localPath - the path to the file locally that you want to upload to the item folder
+     * @param {String} params.json - a JSON object to store in the file directly
+     * @param {String} params.content - some content to store in the file directly
+     * @param {String} params.target - the target name for the file; this will be set relative to the item path
+     * @param {Boolean} params.registerFile = true - the target name for the file; this will be set relative to the item path
+     * @param {Transfer[]} params.batch - an array of objects defining content to put into the store where the params
      *  are as for the single case. Uploads will be run 5 at a time.
      */
     async put({ localPath = undefined, json = undefined, content = undefined, target = undefined, registerFile = true, batch = [], }) {
@@ -328,8 +336,9 @@ export class Store {
     }
     /**
      * Remove a file from an item in the storage
-     * @param {String|Array.<String>} [target] - the target name for the file or array of target files; this will be set relative to the item path
-     * @param {String} [prefix] - file prefix; this will be set relative to the item path
+     * @param {Object} params
+     * @param {String|Array.<String>} [params.target] - the target name for the file or array of target files; this will be set relative to the item path
+     * @param {String} [params.prefix] - file prefix; this will be set relative to the item path
      */
     async delete({ target = undefined, prefix = undefined }) {
         if (specialFiles.includes(target)) {
@@ -395,8 +404,9 @@ export class Store {
     /**
      * Update the file inventory
      * @private
-     * @param {String} target - the file on the storage, relative to the item path
-     * @param {String} hash - the hash (checksum) of the file
+     * @param {Object} params
+     * @param {String} params.target - the file on the storage, relative to the item path
+     * @param {String} params.hash - the hash (checksum) of the file
      * @return a list of files
      */
     async __updateInventory({ target, hash }) {

@@ -8,8 +8,8 @@ export class Walker extends EventEmitter {
     /**
      * Walk a repository in an S3 bucket
      * @constructor
-     * @param {Credentials} credentials - the AWS credentials to use for the connection
-     * @param {string} [domain] - provide this to prefix the paths by domain
+     * @param {Object} params
+     * @param {Credentials} params.credentials - the AWS credentials to use for the connection
      */
     constructor({ credentials }) {
         super();
@@ -33,7 +33,8 @@ export class Walker extends EventEmitter {
     /**
      * Walk the repository and emit when an object is located. The object data
      *   to set up a store connection to it is emitted.
-     * @param {string} [domain] - Walk only the defined domain
+     * @param {Object} params
+     * @param {string} [params.domain] - Walk only the defined domain
      */
     async walk({ domain = undefined }) {
         const walker = __walker.bind(this);

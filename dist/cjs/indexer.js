@@ -45,8 +45,8 @@ var Indexer = /** @class */ (function () {
     /**
      * Handle content indices in an S3 bucket
      * @constructor
-     * @param {Credentials} credentials - the AWS credentials to use for the connection
-     * @param {string} [domain] - provide this to prefix the paths by domain
+     * @param {Object} params
+     * @param {Credentials} params.credentials - the AWS credentials to use for the connection
      */
     function Indexer(_a) {
         var credentials = _a.credentials;
@@ -66,7 +66,8 @@ var Indexer = /** @class */ (function () {
     }
     /**
      * Create index files
-     * @param {string} [domain] - Create indices for this domain only
+     * @param {Object} params
+     * @param {string} [params.domain] - Create indices for this domain only
      */
     Indexer.prototype.createIndices = function (_a) {
         var _b = _a.domain, domain = _b === void 0 ? undefined : _b;
@@ -132,11 +133,12 @@ var Indexer = /** @class */ (function () {
     };
     /**
      * Patch an index file - add new item to it or remove an existing item
-     * @param {'PUT'|'DELETE'} action - the class name of the item being operated on
-     * @param {string} className - the class name of the item being operated on
-     * @param {string} id - the id of the item being operated on
-     * @param {string} domain - provide this to prefix the paths by domain
-     * @param {number} splay=1 - the number of characters (from the start of the identifer) when converting the id to a path
+     * @param {Object} params
+     * @param {'PUT'|'DELETE'} params.action - the action to perform
+     * @param {string} params.className - the class name of the item being operated on
+     * @param {string} params.id - the id of the item being operated on
+     * @param {string} params.domain - provide this to prefix the paths by domain
+     * @param {number} params.splay=1 - the number of characters (from the start of the identifer) when converting the id to a path
      */
     Indexer.prototype.patchIndex = function (_a) {
         var action = _a.action, domain = _a.domain, className = _a.className, id = _a.id, _b = _a.splay, splay = _b === void 0 ? 1 : _b;
@@ -178,8 +180,9 @@ var Indexer = /** @class */ (function () {
     };
     /**
      * List indices in a given domain
-     * @param {string} domain - provide the domain of the index file
-     * @param {string} className - the class name of the item being operated on
+     * @param {Object} params
+     * @param {string} params.domain - provide the domain of the index file
+     * @param {string} params.className - the class name of the item being operated on
      */
     Indexer.prototype.listIndices = function (_a) {
         var domain = _a.domain, className = _a.className;
@@ -204,10 +207,11 @@ var Indexer = /** @class */ (function () {
     };
     /**
      * Get an index file
-     * @param {string} domain - provide the domain of the index file
-     * @param {string} className - the class name of the item being operated on
-     * @param {string} [prefix] - the prefix of the index: i.e. the first letter
-     * @param {string} [file] - the index file name
+     * @param {Object} params
+     * @param {string} params.domain - provide the domain of the index file
+     * @param {string} params.className - the class name of the item being operated on
+     * @param {string} [params.prefix] - the prefix of the index: i.e. the first letter
+     * @param {string} [params.file] - the index file name
      */
     Indexer.prototype.getIndex = function (_a) {
         var domain = _a.domain, className = _a.className, prefix = _a.prefix, file = _a.file;
