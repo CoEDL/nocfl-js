@@ -37,7 +37,7 @@ const specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
 /** Class representing an S3 store. */
 export class Store {
     /**
-     * Interact with a store in an S3 bucket
+     * Interact with a store in an S3 bucket.
      * @constructor
      * @param {Object} params
      * @param {Credentials} params.credentials - the AWS credentials to use for the connection
@@ -129,7 +129,7 @@ export class Store {
     }
 
     /**
-     * Check whether the item exists in the storage
+     * Check whether the item exists in the storage.
      * @return {Boolean}
      */
     async itemExists() {
@@ -140,7 +140,7 @@ export class Store {
     }
 
     /**
-     * Get the item path
+     * Get the item path.
      * @return {String}
      */
     getItemPath() {
@@ -148,7 +148,7 @@ export class Store {
     }
 
     /**
-     * Get the item identifier
+     * Get the item identifier.
      * @return {Object}
      */
     async getItemIdentifier() {
@@ -156,7 +156,7 @@ export class Store {
     }
 
     /**
-     * Get the item inventory file
+     * Get the item inventory file.
      * @return {Object}
      */
     async getItemInventory() {
@@ -164,7 +164,7 @@ export class Store {
     }
 
     /**
-     * Check whether the path exists in the storage
+     * Check whether the path exists in the storage.
      * @param {Object} params
      * @param {String} params.path - the path of the file to check - this is relative to the item root
      * @return {Boolean}
@@ -175,7 +175,7 @@ export class Store {
     }
 
     /**
-     * Return the file stat
+     * Return the file stat.
      * @param {Object} params
      * @param {String} params.path - the path of the file to stat- this is relative to the item root
      * @return {Boolean}
@@ -186,7 +186,7 @@ export class Store {
     }
 
     /**
-     * Create the item in the storage
+     * Create the item in the storage.
      * @return {Boolean}
      */
     async createItem() {
@@ -226,7 +226,7 @@ export class Store {
     }
 
     /**
-     * Get a file from the item on the storage
+     * Get a file from the item on the storage.
      * @param {Object} params
      * @param {String} params.localPath - the local path where you want to download the file to
      * @param {String} params.target - the file on the storage, relative to the item path, that you want to download
@@ -237,7 +237,7 @@ export class Store {
     }
 
     /**
-     * Get file versions
+     * Get file versions.
      * @param {Object} params
      * @param {String} params.target - the file whose versions to retrieve
      * @return {Array} - versions of the specified file ordered newest to oldest. The file as named (ie without a version
@@ -251,7 +251,7 @@ export class Store {
     }
 
     /**
-     * Get a JSON file from the item on the storage
+     * Get a JSON file from the item on the storage.
      * @param {Object} params
      * @param {String} params.localPath - the local path where you want to download the file to
      * @param {String} params.target - the file on the storage, relative to the item path, that you want to download
@@ -261,7 +261,7 @@ export class Store {
     }
 
     /**
-     * Get a presigned link to the file
+     * Get a presigned link to the file.
      * @param {Object} params
      * @param {String} params.target - the file on the storage, relative to the item path, that you want the url for
      * @param {String} params.download - get link that can be used to trigger a direct file download
@@ -272,7 +272,7 @@ export class Store {
     }
 
     /**
-     * Put a file into the item on the storage
+     * Put a file into the item on the storage.
      * @param {Object} params
      * @param {String} params.localPath - the path to the file locally that you want to upload to the item folder
      * @param {String} params.json - a JSON object to store in the file directly
@@ -425,7 +425,7 @@ export class Store {
     }
 
     /**
-     * Remove a file from an item in the storage
+     * Remove a file or files from an item in the storage. Files will also be removed from the hasPart property of the root dataset.
      * @param {Object} params
      * @param {String|Array.<String>} [params.target] - the target name for the file or array of target files; this will be set relative to the item path
      * @param {String} [params.prefix] - file prefix; this will be set relative to the item path
@@ -496,7 +496,7 @@ export class Store {
     }
 
     /**
-     * Delete the item
+     * Delete the item.
      */
     async deleteItem() {
         if (!(await this.itemExists())) {
@@ -515,7 +515,7 @@ export class Store {
     }
 
     /**
-     * Recursively walk and list all of the files for the item
+     * Recursively walk and list all of the files for the item.
      * @return a list of files
      */
     async listResources() {
@@ -544,7 +544,7 @@ export class Store {
     }
 
     /**
-     * Update the file inventory
+     * Update the file inventory.
      * @private
      * @param {Object} params
      * @param {String} params.target - the file on the storage, relative to the item path
