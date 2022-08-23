@@ -174,7 +174,7 @@ describe("Test storage actions", () => {
         expect(resources.length).toEqual(4);
         await bucket.delete({ prefix: store.getItemPath() });
     });
-    test("file creation in item path with domain", async () => {
+    test("it should be able to upload a file in item path with domain", async () => {
         const file = "s3.js";
         const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
@@ -182,6 +182,18 @@ describe("Test storage actions", () => {
 
         let resources = await store.listResources();
         expect(getFile({ resources, file }).Key).toEqual(file);
+
+        await bucket.delete({ prefix: store.getItemPath() });
+    });
+    test("it should do nothing when target undefined and batch length = 0 in put", async () => {
+        const file = "s3.js";
+        const store = new Store({ domain, className: "item", id: "test", credentials });
+        await store.createItem();
+        await store.put({});
+        await store.put({ batch: [] });
+
+        let resources = await store.listResources();
+        expect(resources.length).toEqual(3);
 
         await bucket.delete({ prefix: store.getItemPath() });
     });

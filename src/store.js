@@ -298,6 +298,11 @@ export class Store {
             throw new Error(`The item doesn't exist`);
         }
 
+        if (!batch.length && !target) {
+            // nothing to do
+            return;
+        }
+
         transfer = transfer.bind(this);
         updateCrateMetadata = updateCrateMetadata.bind(this);
         if (batch.length) {
