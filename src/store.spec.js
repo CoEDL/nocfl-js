@@ -445,6 +445,9 @@ describe("Test storage actions", () => {
         expect(resources.length).toEqual(3);
         expect(getFile({ resources, file })).toBe(undefined);
 
+        let crate = await store.getJSON({ target: "ro-crate-metadata.json" });
+        expect(crate["@graph"][1].hasPart.length).toEqual(0);
+
         await bucket.delete({ prefix: store.getItemPath() });
         await remove(path.join("/tmp", file));
     });
@@ -477,6 +480,9 @@ describe("Test storage actions", () => {
         await store.delete({ prefix: "s3" });
         resources = await store.listResources();
         expect(resources.length).toEqual(4);
+
+        let crate = await store.getJSON({ target: "ro-crate-metadata.json" });
+        expect(crate["@graph"][1].hasPart.length).toEqual(1);
 
         await bucket.delete({ prefix: store.getItemPath() });
     });

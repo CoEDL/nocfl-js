@@ -440,6 +440,7 @@ export class Store {
         if (!(await this.itemExists())) {
             throw new Error(`The item doesn't exist`);
         }
+        let crate = await this.getJSON({ target: "ro-crate-metadata.json" });
 
         if (target) {
             if (!isString(target) && !isArray(target)) {
@@ -447,13 +448,50 @@ export class Store {
             }
             if (isString(target)) target = [target];
             let keys = target.map((t) => nodePath.join(this.itemPath, t));
-            return await this.bucket.delete({ keys });
+            await this.bucket.delete({ keys });
+            crate["@graph"] = updateCrateMetadata({ graph: crate["@graph"], keys: target });
         } else if (prefix) {
             if (!isString(prefix)) {
                 throw new Error(`prefix must be a string`);
             }
-            prefix = nodePath.join(this.itemPath, prefix);
-            return await this.bucket.delete({ prefix });
+            await this.bucket.delete({ prefix: nodePath.join(this.itemPath, prefix) });
+            crate["@graph"] = updateCrateMetadata({ graph: crate["@graph"], prefix });
+        }
+        // update the ro crate file
+        await this.bucket.put({
+            target: this.roCrateFile,
+            json: crate,
+        });
+
+        function updateCrateMetadata({ graph, keys = [], prefix }) {
+            // find the root dataset
+            let rootDescriptor = graph.filter(
+                (e) => e["@id"] === "ro-crate-metadata.json" && e["@type"] === "CreativeWork"
+            )[0];
+            let rootDataset = graph.filter((e) => e["@id"] === rootDescriptor.about["@id"])[0];
+            if (!rootDataset) {
+                console.log(`${this.itemPath}/ro-crate-metadata.json DOES NOT have a root dataset`);
+                return;
+            }
+
+            if (keys.length) {
+                let hasPart = rootDataset.hasPart.filter((e) => {
+                    return !keys.includes(e["@id"]);
+                });
+                rootDataset.hasPart = hasPart;
+                graph = graph.filter((e) => !keys.includes(e["@id"]));
+            } else if (prefix) {
+                let re = new RegExp(prefix);
+                let hasPart = rootDataset.hasPart.filter((e) => !e["@id"].match(re));
+                rootDataset.hasPart = hasPart;
+                graph = graph.filter((e) => !e["@id"].match(re));
+            }
+
+            graph = graph.map((e) => {
+                if (e["@id"] === rootDescriptor.about["@id"]) return rootDataset;
+                return e;
+            });
+            return graph;
         }
     }
 
