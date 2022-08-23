@@ -107,7 +107,7 @@ var specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
 /** Class representing an S3 store. */
 var Store = /** @class */ (function () {
     /**
-     * Interact with a store in an S3 bucket
+     * Interact with a store in an S3 bucket.
      * @constructor
      * @param {Object} params
      * @param {Credentials} params.credentials - the AWS credentials to use for the connection
@@ -192,7 +192,7 @@ var Store = /** @class */ (function () {
         this.indexer = new indexer_js_1.Indexer({ credentials: credentials });
     }
     /**
-     * Check whether the item exists in the storage
+     * Check whether the item exists in the storage.
      * @return {Boolean}
      */
     Store.prototype.itemExists = function () {
@@ -210,14 +210,14 @@ var Store = /** @class */ (function () {
         });
     };
     /**
-     * Get the item path
+     * Get the item path.
      * @return {String}
      */
     Store.prototype.getItemPath = function () {
         return this.itemPath;
     };
     /**
-     * Get the item identifier
+     * Get the item identifier.
      * @return {Object}
      */
     Store.prototype.getItemIdentifier = function () {
@@ -231,7 +231,7 @@ var Store = /** @class */ (function () {
         });
     };
     /**
-     * Get the item inventory file
+     * Get the item inventory file.
      * @return {Object}
      */
     Store.prototype.getItemInventory = function () {
@@ -245,7 +245,7 @@ var Store = /** @class */ (function () {
         });
     };
     /**
-     * Check whether the path exists in the storage
+     * Check whether the path exists in the storage.
      * @param {Object} params
      * @param {String} params.path - the path of the file to check - this is relative to the item root
      * @return {Boolean}
@@ -265,7 +265,7 @@ var Store = /** @class */ (function () {
         });
     };
     /**
-     * Return the file stat
+     * Return the file stat.
      * @param {Object} params
      * @param {String} params.path - the path of the file to stat- this is relative to the item root
      * @return {Boolean}
@@ -285,7 +285,7 @@ var Store = /** @class */ (function () {
         });
     };
     /**
-     * Create the item in the storage
+     * Create the item in the storage.
      * @return {Boolean}
      */
     Store.prototype.createItem = function () {
@@ -340,7 +340,7 @@ var Store = /** @class */ (function () {
         });
     };
     /**
-     * Get a file from the item on the storage
+     * Get a file from the item on the storage.
      * @param {Object} params
      * @param {String} params.localPath - the local path where you want to download the file to
      * @param {String} params.target - the file on the storage, relative to the item path, that you want to download
@@ -359,7 +359,7 @@ var Store = /** @class */ (function () {
         });
     };
     /**
-     * Get file versions
+     * Get file versions.
      * @param {Object} params
      * @param {String} params.target - the file whose versions to retrieve
      * @return {Array} - versions of the specified file ordered newest to oldest. The file as named (ie without a version
@@ -383,7 +383,7 @@ var Store = /** @class */ (function () {
         });
     };
     /**
-     * Get a JSON file from the item on the storage
+     * Get a JSON file from the item on the storage.
      * @param {Object} params
      * @param {String} params.localPath - the local path where you want to download the file to
      * @param {String} params.target - the file on the storage, relative to the item path, that you want to download
@@ -403,7 +403,7 @@ var Store = /** @class */ (function () {
         });
     };
     /**
-     * Get a presigned link to the file
+     * Get a presigned link to the file.
      * @param {Object} params
      * @param {String} params.target - the file on the storage, relative to the item path, that you want the url for
      * @param {String} params.download - get link that can be used to trigger a direct file download
@@ -422,7 +422,7 @@ var Store = /** @class */ (function () {
         });
     };
     /**
-     * Put a file into the item on the storage
+     * Put a file into the item on the storage.
      * @param {Object} params
      * @param {String} params.localPath - the path to the file locally that you want to upload to the item folder
      * @param {String} params.json - a JSON object to store in the file directly
@@ -632,7 +632,7 @@ var Store = /** @class */ (function () {
         });
     };
     /**
-     * Remove a file from an item in the storage
+     * Remove a file or files from an item in the storage. Files will also be removed from the hasPart property of the root dataset.
      * @param {Object} params
      * @param {String|Array.<String>} [params.target] - the target name for the file or array of target files; this will be set relative to the item path
      * @param {String} [params.prefix] - file prefix; this will be set relative to the item path
@@ -640,7 +640,36 @@ var Store = /** @class */ (function () {
     Store.prototype.delete = function (_a) {
         var _b = _a.target, target = _b === void 0 ? undefined : _b, _c = _a.prefix, prefix = _c === void 0 ? undefined : _c;
         return __awaiter(this, void 0, void 0, function () {
-            var keys;
+            function updateCrateMetadata(_a) {
+                var graph = _a.graph, _b = _a.keys, keys = _b === void 0 ? [] : _b, prefix = _a.prefix;
+                // find the root dataset
+                var rootDescriptor = graph.filter(function (e) { return e["@id"] === "ro-crate-metadata.json" && e["@type"] === "CreativeWork"; })[0];
+                var rootDataset = graph.filter(function (e) { return e["@id"] === rootDescriptor.about["@id"]; })[0];
+                if (!rootDataset) {
+                    console.log("".concat(this.itemPath, "/ro-crate-metadata.json DOES NOT have a root dataset"));
+                    return;
+                }
+                if (keys.length) {
+                    var hasPart = rootDataset.hasPart.filter(function (e) {
+                        return !keys.includes(e["@id"]);
+                    });
+                    rootDataset.hasPart = hasPart;
+                    graph = graph.filter(function (e) { return !keys.includes(e["@id"]); });
+                }
+                else if (prefix) {
+                    var re_1 = new RegExp(prefix);
+                    var hasPart = rootDataset.hasPart.filter(function (e) { return !e["@id"].match(re_1); });
+                    rootDataset.hasPart = hasPart;
+                    graph = graph.filter(function (e) { return !e["@id"].match(re_1); });
+                }
+                graph = graph.map(function (e) {
+                    if (e["@id"] === rootDescriptor.about["@id"])
+                        return rootDataset;
+                    return e;
+                });
+                return graph;
+            }
+            var crate, keys;
             var _this = this;
             return __generator(this, function (_d) {
                 switch (_d.label) {
@@ -653,7 +682,10 @@ var Store = /** @class */ (function () {
                         if (!(_d.sent())) {
                             throw new Error("The item doesn't exist");
                         }
-                        if (!target) return [3 /*break*/, 3];
+                        return [4 /*yield*/, this.getJSON({ target: "ro-crate-metadata.json" })];
+                    case 2:
+                        crate = _d.sent();
+                        if (!target) return [3 /*break*/, 4];
                         if (!isString(target) && !isArray(target)) {
                             throw new Error("target must be a string or array of strings");
                         }
@@ -661,22 +693,36 @@ var Store = /** @class */ (function () {
                             target = [target];
                         keys = target.map(function (t) { return nodePath.join(_this.itemPath, t); });
                         return [4 /*yield*/, this.bucket.delete({ keys: keys })];
-                    case 2: return [2 /*return*/, _d.sent()];
                     case 3:
-                        if (!prefix) return [3 /*break*/, 5];
+                        _d.sent();
+                        crate["@graph"] = updateCrateMetadata({ graph: crate["@graph"], keys: target });
+                        return [3 /*break*/, 6];
+                    case 4:
+                        if (!prefix) return [3 /*break*/, 6];
                         if (!isString(prefix)) {
                             throw new Error("prefix must be a string");
                         }
-                        prefix = nodePath.join(this.itemPath, prefix);
-                        return [4 /*yield*/, this.bucket.delete({ prefix: prefix })];
-                    case 4: return [2 /*return*/, _d.sent()];
-                    case 5: return [2 /*return*/];
+                        return [4 /*yield*/, this.bucket.delete({ prefix: nodePath.join(this.itemPath, prefix) })];
+                    case 5:
+                        _d.sent();
+                        crate["@graph"] = updateCrateMetadata({ graph: crate["@graph"], prefix: prefix });
+                        _d.label = 6;
+                    case 6: 
+                    // update the ro crate file
+                    return [4 /*yield*/, this.bucket.put({
+                            target: this.roCrateFile,
+                            json: crate,
+                        })];
+                    case 7:
+                        // update the ro crate file
+                        _d.sent();
+                        return [2 /*return*/];
                 }
             });
         });
     };
     /**
-     * Delete the item
+     * Delete the item.
      */
     Store.prototype.deleteItem = function () {
         return __awaiter(this, void 0, void 0, function () {
@@ -707,7 +753,7 @@ var Store = /** @class */ (function () {
         });
     };
     /**
-     * Recursively walk and list all of the files for the item
+     * Recursively walk and list all of the files for the item.
      * @return a list of files
      */
     Store.prototype.listResources = function () {
@@ -752,7 +798,7 @@ var Store = /** @class */ (function () {
         });
     };
     /**
-     * Update the file inventory
+     * Update the file inventory.
      * @private
      * @param {Object} params
      * @param {String} params.target - the file on the storage, relative to the item path

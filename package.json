@@ -21,7 +21,7 @@
         "url": "https://github.com/CoEDL/nocfl-js"
     },
     "author": "Marco La Rosa",
-    "license": "ISC",
+    "license": "GPLv3",
     "exports": {
         "import": "./dist/mjs/index.js",
         "require": "./dist/cjs/index.js"

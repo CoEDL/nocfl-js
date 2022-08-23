@@ -1,6 +1,24 @@
 # nocfl-js
 
-An opinionated S3 storage library inspired by ocfl but without versioning
+An opinionated S3 storage library inspired by ocfl but without versioning.
+
+## Table of Contents
+
+- [nocfl-js](#nocfl-js)
+  - [Table of Contents](#table-of-contents)
+- [Background](#background)
+- [Tests](#tests)
+- [Repository and Documentation](#repository-and-documentation)
+- [About this library](#about-this-library)
+  - [Research Object Crate Metadata](#research-object-crate-metadata)
+  - [Index files](#index-files)
+  - [Versioning](#versioning)
+  - [Creating a new item](#creating-a-new-item)
+- [Load the library](#load-the-library)
+- [Store](#store)
+  - [Create an item and put a file to it](#create-an-item-and-put-a-file-to-it)
+- [Indexer](#indexer)
+- [Walker](#walker)
 
 # Background
 
@@ -18,24 +36,54 @@ command will start a local S3 service called [MinIO](https://hub.docker.com/r/mi
 
 # Repository and Documentation
 
--   Repository: [https://github.com/CoEDL/nocfl-js](https://github.com/CoEDL/nocfl-js)
--   Documentation: [https://coedl.github.io/nocfl-js/](https://coedl.github.io/nocfl-js/)
+-   \- Repository: [https://github.com/CoEDL/nocfl-js](https://github.com/CoEDL/nocfl-js)
+-   \- Documentation: [https://coedl.github.io/nocfl-js/](https://coedl.github.io/nocfl-js/)
 
 # About this library
 
 This library is intended to simplify working with data in an S3 bucket. Its primary objective is to
 ease the creation and management of data objects in the bucket in a well defined way. Accordingly,
 the API is intentionally simple. You define some properties when creating a hook to the bucket and
-then get / put data from it. The library will produce an inventory file for you as well as a
-skeleton [Research Object Crate - RO-Crate](https://www.researchobject.org/ro-crate).
+then get / put data from it.
+
+## Research Object Crate Metadata
+
+The library will create a metadata file for you -
+[Research Object Crate - RO-Crate](https://www.researchobject.org/ro-crate). By default, when you
+put a file into the object it will be registered in the `hasPart` property of the root dataset. And
+when you remove a file, it's content will also be removed from the crate file.
+
+## Index files
+
+Object storage has no concept of folders so when looking for objects, you have to walk all of the
+keys. This can be painful and slow so new items are automatically added to an index file on the
+storage. See [Indexer](#indexer) for more information.
+
+## Versioning
+
+This library can version files for you. The versioning is not on by default but it can be
+`turned on per file PUT`. When you version a file the following happens - as an example, let's say
+the file is called `something.txt`
+
+-   \- the existing file (something.txt) will be copied to `something.v${Date as ISO String}.txt`
+-   \- the new version will be uploaded to `something.txt`
+
+Think of the versioned examples as being the content of that file until that point in time. One can
+retrieve the versions of a given file by calling the `listFileVersions` method on a given base file
+name:
+
+```
+listFileVersions({ target: 'something.txt' })
+```
 
 ## Creating a new item
 
 When creating a new item you need to
 
--   pass in a domain name
--   pass in the primary class of the data type (e.g. Collection, Item, Person etc)
--   pass in the item identifier
+-   \- pass in a domain name (really, this is just a string prefix but a domain name is a good
+    option)
+-   \- pass in the primary class of the data type (e.g. Collection, Item, Person etc)
+-   \- pass in the item identifier
 
 Both `id` and `className` must start with letter (upper or lowercase) and be followed by any number
 of letters (upper and lower), numbers and underscore. Any other characters will not be accepted and
@@ -56,9 +104,7 @@ Examples:
 -   domain: example.com, class: Collection, id: test, splay: 10 -> `(bucket)/example.com/collection/test/test`
 ```
 
-## Example usage
-
-### Load it
+# Load the library
 
 ```
 
@@ -70,7 +116,12 @@ const { Store } = require('@coedl/nocfl-js)
 
 ```
 
-### Create an item and put a file to it
+# Store
+
+The is the workhorse class to interact with the storage. This is how you get / put files to / from
+the storage and just generally work with them.
+
+## Create an item and put a file to it
 
 ```
 // get a hook to the storage
@@ -90,3 +141,81 @@ let link = await store.getPresignedUrl({ target: file });
 ```
 
 See the [tests](./src/store.spec.js) for more usage examples.
+
+# Indexer
+
+This class helps you create and manage file based indices of the content on the storage. In Object
+storage there is no such thing as a folder. It's key / value pairs where the key (the fully
+qualified filename you gave it) points to the file data. That means you can't do things like:
+
+```
+ls /data/folder1/today/my/files
+```
+
+even though it looks like you have just such a path. Practically this means that whenever you want
+to look for something, you have to `walk all of the keys`. Obviously this becomes more and more
+painful as the amount of content in the storage grows. So, to shortcut this, you can create index
+files to the objects on the storage. And you do that via this class.
+
+```
+const indexer = new Indexer({credentials})
+await indexer.createIndices({})
+```
+
+This will walk the storage and create an `indices folder per domain` which contains a folder for
+each type it finds (collection, item, etc) and within those folders, an index file for each letter
+of the alphabet:
+
+```
+- domain1.example.com
+    - indices
+        - collection
+            - a.json
+            - b.json
+            - ...
+        - item
+            - a.json
+            - b.json
+            - ...
+- domain2.example.com
+        - collection
+            - a.json
+            - b.json
+            - ...
+        - item
+            - a.json
+            - b.json
+            - ...
+```
+
+The you can operate on those:
+
+```
+// list all indices in the domain
+listIndices({ domain: 'domain1.example.com' })
+
+// list all indices of type in the domain
+listIndices({ domain: 'domain1.example.com', className: 'collection' })
+
+// get a specific index
+getIndex({ domain: 'domain1.example.com', className: 'collection', prefix: 'a'})
+
+or
+
+getIndex({ domain: 'domain1.example.com', className: 'collection', file: 'a.json'})
+```
+
+# Walker
+
+The class will walk the storage for you and emit an object you can use with the storage class to
+attach to an object in the storage and operate on it.
+
+```
+const walker = new Walker({ credentials: this.credentials, domain });
+walker.on("object", (object) => {
+    let { domain, className, id, splay } = object;
+
+    // do something with object
+})
+
+```
