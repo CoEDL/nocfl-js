@@ -561,6 +561,10 @@ var Store = /** @class */ (function () {
                         if (!(_q.sent())) {
                             throw new Error("The item doesn't exist");
                         }
+                        if (!batch.length && !target) {
+                            // nothing to do
+                            return [2 /*return*/];
+                        }
                         transfer = transfer.bind(this);
                         updateCrateMetadata = updateCrateMetadata.bind(this);
                         if (!batch.length) return [3 /*break*/, 6];
