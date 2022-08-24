@@ -1,6 +1,6 @@
 # nocfl-js
 
-An opinionated S3 storage library inspired by ocfl but without versioning.
+An opinionated S3 storage library inspired by ocfl but simpler.
 
 ## Table of Contents
 
