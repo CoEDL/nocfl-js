@@ -433,6 +433,10 @@ Just to explain, versioning is to be thought of as follows:
 -   file1.wav --> the current version
 -   file1.v${DATE as ISO String}.wav --> version until that point in time
 
+Finally, converting a PARADISEC object to nocfl would noto drastically alter the backup of that
+data. A few more files would be added. It would not be a wholesale update of the whole system which
+at 180TB and growingß is less than ideal.
+
 ## If you read nothing else
 
 1.  It's simpler than OCFL.
