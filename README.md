@@ -28,6 +28,8 @@ just that we needed something different.
 
 The name of this library came from [Peter Sefton](https://github.com/ptsefton).
 
+[Why not just use OCFL?](tutorial-why-not-ocfl.html)
+
 # Tests
 
 This library has extensive tests. To run them: `npm run test:watch`. You will need docker as this

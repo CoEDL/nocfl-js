@@ -4,7 +4,13 @@
         "dictionaries": ["jsdoc", "closure"]
     },
     "source": {
-        "include": ["README.md", "./src/store.js", "./src/indexer.js", "./src/walker.js"]
+        "include": [
+            "README.md",
+            "why-not-ocfl.md",
+            "./src/store.js",
+            "./src/indexer.js",
+            "./src/walker.js"
+        ]
     },
     "plugins": ["plugins/markdown"],
     "sourceType": "module",
@@ -15,7 +21,8 @@
         "template": "node_modules/clean-jsdoc-theme",
         "theme_opts": {
             "default_theme": "light"
-        }
+        },
+        "tutorials": "./documentation"
     },
     "markdown": {
         "hardwrap": false,
