@@ -322,7 +322,7 @@ As you can see from the structure, to get the current version of the data inside
 traverse forwards through the versions collecting all of the files; with later versions of the file
 overwriting the earlier versions. Whilst possible to do with a simple file browser, it would be
 complex. A mitigation strategy is the development of a tool that given an object id, would `export`
-the object data to some location. (Whether anyone should be accesing a repository data store via a
+the object data to some location. (Whether anyone should be accessing a repository data store via a
 file browser is outside the scope of this discussion. I would say not but sometimes you get told to
 allow that...)
 
