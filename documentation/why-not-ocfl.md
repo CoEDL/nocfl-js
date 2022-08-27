@@ -183,9 +183,9 @@ PARADISEC (as at this writing) has more than 180TB of data. As part of the appli
 project we were initially planning on provisioning a new data store where we would export the items
 from the live catalog as OCFL objects. Thinking about this some more we came across the dual storage
 problem. We would need 180TB (and growing by 1-2TB per week) on the live catalog server **AND** the
-OCFL filesystem. As a project that is self funded by small grants and in kind contributions from our
+OCFL filesystem. As a project that is self funded by small grants and in-kind contributions from our
 partner institutions, getting access to `2n` storage growing at the rate of 1-2TB per week was just
-not realistic or feasible.
+not feasible; or for that matter realistic.
 
 ## Reason 2 to not use OCFL - the data migration from current to OCFL
 
@@ -214,12 +214,10 @@ In the current system retrieving a collection from the server provides a metadat
 the related items. Likewise, collecting an item provides links to the collection it belongs to. When
 using OCFL the workflow would look something like the following:
 
-```
-* create a new collection - version 1 of the object is stored
-* create a new item and associate it to the collection - version 2 of the collection is created because the metadata has been updated
-* create a new item and associate it to the collection - version 3 of the collection....
-and so on
-```
+1. create a new collection - version 1 of the object is stored
+2. create a new item and associate it to the collection - version 2 of the collection is created
+   because the metadata has been updated
+3. create a new item and associate it to the collection - version 3 of the collection.... and so on
 
 ### Mitigation proposal 1 - overarching services
 
