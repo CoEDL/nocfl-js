@@ -438,7 +438,7 @@ Just to explain, versioning is to be thought of as follows:
 ## If you read nothing else
 
 1.  It's simpler than OCFL.
-2.  It can be overlay existing filesystem structures without change.
+2.  It can overlay existing filesystem structures without change.
 3.  It's an evolution of a system that has been battle tested for almost 20 years.
 4.  No additional services are required to make sense of the data - a file browser is all that is
     required.
