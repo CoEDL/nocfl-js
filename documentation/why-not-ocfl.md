@@ -15,6 +15,7 @@
   - [About nocfl](#about-nocfl)
   - [What's missing / wrong with this implementation?](#whats-missing--wrong-with-this-implementation)
   - [What's good about this implementation?](#whats-good-about-this-implementation)
+  - [If you read nothing else](#if-you-read-nothing-else)
 
 Author: [Dr Marco La Rosa](https://www.linkedin.com/in/marcolarosa/)
 
@@ -377,6 +378,8 @@ store. If they choose to continue with NFS on disk then two things need to happe
 2. An extra property `itemPath` is to be added to the Store constructor which would take in the path
    to use rather than assembling it from the domain, class and id - trivial.
 
+## What's good about this implementation?
+
 The current file system layout of PARADISEC looks like (using an item example):
 
 ```
@@ -432,16 +435,17 @@ Just to explain, versioning is to be thought of as follows:
 -   file1.wav --> the current version
 -   file1.v${DATE as ISO String}.wav --> version until that point in time
 
-## What's good about this implementation?
+## If you read nothing else
 
 1.  It's simpler than OCFL.
-2.  It's an evolution of a system that has been battle tested for almost 20 years.
-3.  No additional services are required to make sense of the data - a file browser is all that is
+2.  It can be overlay existing filesystem structures without change.
+3.  It's an evolution of a system that has been battle tested for almost 20 years.
+4.  No additional services are required to make sense of the data - a file browser is all that is
     required.
-4.  The simplicity of the design means it can be easily managed via a file browser.
+5.  The simplicity of the design means it can be easily managed via a file browser.
 
-5.  Extracting data from the filesystem doesn't require custom tools that understand OCFL - a file
+6.  Extracting data from the filesystem doesn't require custom tools that understand OCFL - a file
     browser is all that is required.
-6.  It supports per file versioning.
-7.  It automatically manages metadata (RO Crate Metadata) and file checksums - both required for
+7.  It supports per file versioning.
+8.  It automatically manages metadata (RO Crate Metadata) and file checksums - both required for
     good practice.
