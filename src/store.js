@@ -320,20 +320,22 @@ export class Store {
         // console.log(crate["@graph"]);
 
         // patch in any updates that need to be patched in
-        if (target) {
+        if (target && registerFile) {
             crate["@graph"] = await updateCrateMetadata({
                 graph: crate["@graph"],
                 target,
-                registerFile,
             });
         }
         if (batch.length) {
             for (let { target, registerFile } of batch) {
-                crate["@graph"] = await updateCrateMetadata({
-                    graph: crate["@graph"],
-                    target,
-                    registerFile,
-                });
+                // if registerFile = undefined set to true by default
+                registerFile = registerFile !== undefined ? registerFile : true;
+                if (registerFile) {
+                    crate["@graph"] = await updateCrateMetadata({
+                        graph: crate["@graph"],
+                        target,
+                    });
+                }
             }
         }
 
@@ -343,7 +345,7 @@ export class Store {
             json: crate,
         });
 
-        async function transfer({ localPath, json, content, target, registerFile, version }) {
+        async function transfer({ localPath, json, content, target, version }) {
             if (specialFiles.includes(target)) {
                 throw new Error(
                     `You can't upload a file called '${target} as that's a special file used by the system`
@@ -382,7 +384,7 @@ export class Store {
             }
         }
 
-        async function updateCrateMetadata({ graph, target, registerFile }) {
+        async function updateCrateMetadata({ graph, target }) {
             // we don't register the ro crate file
             if (registerFile && target === "ro-crate-metadata.json") return graph;
 

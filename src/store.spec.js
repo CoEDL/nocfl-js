@@ -313,7 +313,10 @@ describe("Test storage actions", () => {
 
         let batch = [
             { localPath: path.join(__dirname, "s3.js"), target: "s3.js" },
-            { localPath: path.join(__dirname, "s3.spec.js"), target: "s3.spec.js" },
+            {
+                localPath: path.join(__dirname, "s3.spec.js"),
+                target: "s3.spec.js",
+            },
         ];
 
         await store.put({ batch });
@@ -340,6 +343,45 @@ describe("Test storage actions", () => {
         ]);
         let files = crate["@graph"].filter((e) => e["@type"] === "File");
         expect(files.length).toEqual(2);
+
+        await bucket.delete({ prefix: store.getItemPath() });
+        await remove(path.join("/tmp", file));
+    });
+    test("it should be able to upload / download two files simultaneously - register one only", async () => {
+        const file = "s3.js";
+        const store = new Store({ domain, className: "item", id: "test", credentials });
+        await store.createItem();
+
+        let batch = [
+            { localPath: path.join(__dirname, "s3.js"), target: "s3.js" },
+            {
+                localPath: path.join(__dirname, "s3.spec.js"),
+                target: "s3.spec.js",
+                registerFile: false,
+            },
+        ];
+
+        await store.put({ batch });
+        let resources = await store.listResources();
+        expect(resources.map((r) => r.Key).sort()).toEqual([
+            "nocfl.identifier.json",
+            "nocfl.inventory.json",
+            "ro-crate-metadata.json",
+            "s3.js",
+            "s3.spec.js",
+        ]);
+        expect(resources.length).toEqual(5);
+
+        let crate = await store.getJSON({ target: "ro-crate-metadata.json" });
+        let rootDataset = crate["@graph"].filter((e) => e["@id"] === "./")[0];
+        expect(rootDataset.hasPart.length).toEqual(1);
+        expect(rootDataset.hasPart).toEqual([
+            {
+                "@id": "s3.js",
+            },
+        ]);
+        let files = crate["@graph"].filter((e) => e["@type"] === "File");
+        expect(files.length).toEqual(1);
 
         await bucket.delete({ prefix: store.getItemPath() });
         await remove(path.join("/tmp", file));
