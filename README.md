@@ -6,9 +6,9 @@ An opinionated S3 storage library inspired by ocfl but simpler.
 
 - [nocfl-js](#nocfl-js)
   - [Table of Contents](#table-of-contents)
+- [Repository and Documentation](#repository-and-documentation)
 - [Background](#background)
 - [Tests](#tests)
-- [Repository and Documentation](#repository-and-documentation)
 - [About this library](#about-this-library)
   - [Research Object Crate Metadata](#research-object-crate-metadata)
   - [Index files](#index-files)
@@ -19,6 +19,11 @@ An opinionated S3 storage library inspired by ocfl but simpler.
   - [Create an item and put a file to it](#create-an-item-and-put-a-file-to-it)
 - [Indexer](#indexer)
 - [Walker](#walker)
+
+# Repository and Documentation
+
+-   \- Repository: [https://github.com/CoEDL/nocfl-js](https://github.com/CoEDL/nocfl-js)
+-   \- Documentation: [https://coedl.github.io/nocfl-js/](https://coedl.github.io/nocfl-js/)
 
 # Background
 
@@ -35,11 +40,6 @@ The name of this library came from [Peter Sefton](https://github.com/ptsefton).
 This library has extensive tests. To run them: `npm run test:watch`. You will need docker as this
 command will start a local S3 service called [MinIO](https://hub.docker.com/r/minio/minio/).
 (`npm run develop` exists as a more semantically meaningful shortcut for test:watch)
-
-# Repository and Documentation
-
--   \- Repository: [https://github.com/CoEDL/nocfl-js](https://github.com/CoEDL/nocfl-js)
--   \- Documentation: [https://coedl.github.io/nocfl-js/](https://coedl.github.io/nocfl-js/)
 
 # About this library
 
