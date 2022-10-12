@@ -1,6 +1,5 @@
 import { Bucket } from "./s3.js";
 import { Walker } from "./walker.js";
-import { orderBy, uniqBy } from "lodash";
 import lodashPkg from "lodash";
 const { orderBy, uniqBy } = lodashPkg;
 
