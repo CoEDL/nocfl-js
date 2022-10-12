@@ -1,6 +1,4 @@
-<!DOCTYPE html><html lang="en" style="font-size:16px"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>store.js</title><!--[if lt IE 9]>
-      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
-    <![endif]--><script src="scripts/third-party/hljs.js" defer="defer"></script><script src="scripts/third-party/hljs-line-num.js" defer="defer"></script><script src="scripts/third-party/popper.js" defer="defer"></script><script src="scripts/third-party/tippy.js" defer="defer"></script><script src="scripts/third-party/tocbot.js"></script><script>var baseURL="/",locationPathname="",baseURL=(locationPathname=document.location.pathname).substr(0,locationPathname.lastIndexOf("/")+1)</script><link rel="stylesheet" href="styles/clean-jsdoc-theme.min.css"><svg aria-hidden="true" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="display:none"><defs><symbol id="copy-icon" viewbox="0 0 488.3 488.3"><g><path d="M314.25,85.4h-227c-21.3,0-38.6,17.3-38.6,38.6v325.7c0,21.3,17.3,38.6,38.6,38.6h227c21.3,0,38.6-17.3,38.6-38.6V124    C352.75,102.7,335.45,85.4,314.25,85.4z M325.75,449.6c0,6.4-5.2,11.6-11.6,11.6h-227c-6.4,0-11.6-5.2-11.6-11.6V124    c0-6.4,5.2-11.6,11.6-11.6h227c6.4,0,11.6,5.2,11.6,11.6V449.6z"/><path d="M401.05,0h-227c-21.3,0-38.6,17.3-38.6,38.6c0,7.5,6,13.5,13.5,13.5s13.5-6,13.5-13.5c0-6.4,5.2-11.6,11.6-11.6h227    c6.4,0,11.6,5.2,11.6,11.6v325.7c0,6.4-5.2,11.6-11.6,11.6c-7.5,0-13.5,6-13.5,13.5s6,13.5,13.5,13.5c21.3,0,38.6-17.3,38.6-38.6    V38.6C439.65,17.3,422.35,0,401.05,0z"/></g></symbol><symbol id="search-icon" viewBox="0 0 512 512"><g><g><path d="M225.474,0C101.151,0,0,101.151,0,225.474c0,124.33,101.151,225.474,225.474,225.474    c124.33,0,225.474-101.144,225.474-225.474C450.948,101.151,349.804,0,225.474,0z M225.474,409.323    c-101.373,0-183.848-82.475-183.848-183.848S124.101,41.626,225.474,41.626s183.848,82.475,183.848,183.848    S326.847,409.323,225.474,409.323z"/></g></g><g><g><path d="M505.902,476.472L386.574,357.144c-8.131-8.131-21.299-8.131-29.43,0c-8.131,8.124-8.131,21.306,0,29.43l119.328,119.328    c4.065,4.065,9.387,6.098,14.715,6.098c5.321,0,10.649-2.033,14.715-6.098C514.033,497.778,514.033,484.596,505.902,476.472z"/></g></g></symbol><symbol id="font-size-icon" viewBox="0 0 24 24"><path fill="none" d="M0 0h24v24H0z"/><path d="M11.246 15H4.754l-2 5H.6L7 4h2l6.4 16h-2.154l-2-5zm-.8-2L8 6.885 5.554 13h4.892zM21 12.535V12h2v8h-2v-.535a4 4 0 1 1 0-6.93zM19 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/></symbol><symbol id="add-icon" viewBox="0 0 24 24"><path fill="none" d="M0 0h24v24H0z"/><path d="M11 11V5h2v6h6v2h-6v6h-2v-6H5v-2z"/></symbol><symbol id="minus-icon" viewBox="0 0 24 24"><path fill="none" d="M0 0h24v24H0z"/><path d="M5 11h14v2H5z"/></symbol><symbol id="dark-theme-icon" viewBox="0 0 24 24"><path fill="none" d="M0 0h24v24H0z"/><path d="M10 7a7 7 0 0 0 12 4.9v.1c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2h.1A6.979 6.979 0 0 0 10 7zm-6 5a8 8 0 0 0 15.062 3.762A9 9 0 0 1 8.238 4.938 7.999 7.999 0 0 0 4 12z"/></symbol><symbol id="light-theme-icon" viewBox="0 0 24 24"><path fill="none" d="M0 0h24v24H0z"/><path d="M12 18a6 6 0 1 1 0-12 6 6 0 0 1 0 12zm0-2a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM11 1h2v3h-2V1zm0 19h2v3h-2v-3zM3.515 4.929l1.414-1.414L7.05 5.636 5.636 7.05 3.515 4.93zM16.95 18.364l1.414-1.414 2.121 2.121-1.414 1.414-2.121-2.121zm2.121-14.85l1.414 1.415-2.121 2.121-1.414-1.414 2.121-2.121zM5.636 16.95l1.414 1.414-2.121 2.121-1.414-1.414 2.121-2.121zM23 11v2h-3v-2h3zM4 11v2H1v-2h3z"/></symbol><symbol id="reset-icon" viewBox="0 0 24 24"><path fill="none" d="M0 0h24v24H0z"/><path d="M18.537 19.567A9.961 9.961 0 0 1 12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10c0 2.136-.67 4.116-1.81 5.74L17 12h3a8 8 0 1 0-2.46 5.772l.997 1.795z"/></symbol><symbol id="down-icon" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M12.7803 6.21967C13.0732 6.51256 13.0732 6.98744 12.7803 7.28033L8.53033 11.5303C8.23744 11.8232 7.76256 11.8232 7.46967 11.5303L3.21967 7.28033C2.92678 6.98744 2.92678 6.51256 3.21967 6.21967C3.51256 5.92678 3.98744 5.92678 4.28033 6.21967L8 9.93934L11.7197 6.21967C12.0126 5.92678 12.4874 5.92678 12.7803 6.21967Z"></path></symbol><symbol id="codepen-icon" viewBox="0 0 24 24"><path fill="none" d="M0 0h24v24H0z"/><path d="M16.5 13.202L13 15.535v3.596L19.197 15 16.5 13.202zM14.697 12L12 10.202 9.303 12 12 13.798 14.697 12zM20 10.869L18.303 12 20 13.131V10.87zM19.197 9L13 4.869v3.596l3.5 2.333L19.197 9zM7.5 10.798L11 8.465V4.869L4.803 9 7.5 10.798zM4.803 15L11 19.131v-3.596l-3.5-2.333L4.803 15zM4 13.131L5.697 12 4 10.869v2.262zM2 9a1 1 0 0 1 .445-.832l9-6a1 1 0 0 1 1.11 0l9 6A1 1 0 0 1 22 9v6a1 1 0 0 1-.445.832l-9 6a1 1 0 0 1-1.11 0l-9-6A1 1 0 0 1 2 15V9z"/></symbol><symbol id="close-icon" viewBox="0 0 24 24"><path fill="none" d="M0 0h24v24H0z"/><path d="M12 10.586l4.95-4.95 1.414 1.414-4.95 4.95 4.95 4.95-1.414 1.414-4.95-4.95-4.95 4.95-1.414-1.414 4.95-4.95-4.95-4.95L7.05 5.636z"/></symbol><symbol id="menu-icon" viewBox="0 0 24 24"><path fill="none" d="M0 0h24v24H0z"/><path d="M3 4h18v2H3V4zm0 7h18v2H3v-2zm0 7h18v2H3v-2z"/></symbol></defs></svg></head><body class="light" data-theme="light"><div class="sidebar-container"><div class="sidebar" id="sidebar"><a href="/" class="sidebar-title sidebar-title-anchor">Home</a><div class="sidebar-items-container"><div class="sidebar-section-title with-arrow" data-isopen="false" id="cPqssqksOcifjl3IlQeHH"><div>Classes</div><svg><use xlink:href="#down-icon"></use></svg></div><div class="sidebar-section-children-container"><div class="sidebar-section-children"><a href="Store.html">Store</a></div><div class="sidebar-section-children"><a href="Walker.html">Walker</a></div></div><div class="sidebar-section-title with-arrow" data-isopen="false" id="WjyPULSqaLVtZBWYrOe4j"><div>Tutorials</div><svg><use xlink:href="#down-icon"></use></svg></div><div class="sidebar-section-children-container"><div class="sidebar-section-children"><a href="tutorial-why-not-ocfl.html">why-not-ocfl</a></div></div><div class="sidebar-section-title with-arrow" data-isopen="false" id="jks5Rgf4rUXiciRLTsZCD"><div>Global</div><svg><use xlink:href="#down-icon"></use></svg></div><div class="sidebar-section-children-container"><div class="sidebar-section-children"><a href="global.html#Credentials">Credentials</a></div><div class="sidebar-section-children"><a href="global.html#Transfer">Transfer</a></div></div></div></div></div><div class="navbar-container" id="VuAckcnZhf"><nav class="navbar"><div class="navbar-left-items"></div><div class="navbar-right-items"><div class="navbar-right-item"><button class="icon-button search-button" aria-label="open-search"><svg><use xlink:href="#search-icon"></use></svg></button></div><div class="navbar-right-item"><button class="icon-button theme-toggle" aria-label="toggle-theme"><svg><use class="theme-svg-use" xlink:href="#dark-theme-icon"></use></svg></button></div><div class="navbar-right-item"><button class="icon-button font-size" aria-label="change-font-size"><svg><use xlink:href="#font-size-icon"></use></svg></button></div></div><nav></nav></nav></div><div class="toc-container"><div class="toc-content"><span class="bold">On this page</span><div id="eed4d2a0bfd64539bb9df78095dec881"></div></div></div><div class="body-wrapper"><div class="main-content"><div class="main-wrapper"><section id="source-page" class="source-page"><header><h1 id="title" class="has-anchor">store.js</h1></header><article><pre class="prettyprint source lang-js"><code>import { Bucket } from "./s3.js";
+import { Bucket } from "./s3.js";
 import fsExtra from "fs-extra";
 const { createReadStream } = fsExtra;
 import crypto from "crypto";
@@ -9,9 +7,7 @@ import hasha from "hasha";
 import { Indexer } from "./indexer.js";
 import lodashPkg from "lodash";
 const { isString, isArray, chunk } = lodashPkg;
-
 const specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
-
 /**
  * A transfer Object
  * @typedef {Object} Transfer
@@ -24,7 +20,6 @@ const specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
  * @property {Boolean} version=false - whether the file should be versioned. If true, the existing file will be copied
  *  to ${file}.v${date as ISO String}.{ext} before the new version is uploaded to the target name
  */
-
 /**
  * An AWS Credentials Object
  * @typedef {Object} Credentials
@@ -35,7 +30,6 @@ const specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
  * @property {string} [endpoint] - the endpoint URL when using an S3 like service (e.g. Minio)
  * @property {boolean} [forcePathStyle] - whether to force path style endpoints (required for Minio and the like)
  */
-
 /** Class representing an S3 store. */
 export class Store {
     /**
@@ -49,18 +43,20 @@ export class Store {
      * @param {number} [params.splay=1] - the number of characters (from the start of the identifer) when converting the id to a path
      */
     constructor({ domain = undefined, className, id, credentials, splay = 1 }) {
-        if (!id) throw new Error(`Missing required property: 'id'`);
-        if (!domain) throw new Error(`Missing required property: 'domain'`);
-        if (!className) throw new Error(`Missing required property: 'className'`);
-        if (!credentials) throw new Error(`Missing required property: 'credentials'`);
-
+        if (!id)
+            throw new Error(`Missing required property: 'id'`);
+        if (!domain)
+            throw new Error(`Missing required property: 'domain'`);
+        if (!className)
+            throw new Error(`Missing required property: 'className'`);
+        if (!credentials)
+            throw new Error(`Missing required property: 'credentials'`);
         const requiredProperties = ["bucket", "accessKeyId", "secretAccessKey", "region"];
         requiredProperties.forEach((property) => {
             if (!credentials[property]) {
                 throw new Error(`Missing required property: '${property}'`);
             }
         });
-
         if (!isString(id)) {
             throw new Error(`The 'id' must be a string`);
         }
@@ -70,27 +66,18 @@ export class Store {
         if (!isString(domain)) {
             throw new Error(`The 'domain' must be a string`);
         }
-
         if (!id.match(/^[a-z,A-Z][a-z,A-Z,0-9,_]+$/)) {
-            throw new Error(
-                `The identifier doesn't match the allowed format: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$`
-            );
+            throw new Error(`The identifier doesn't match the allowed format: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$`);
         }
         if (!className.match(/^[a-z,A-Z][a-z,A-Z,0-9,_]+$/)) {
-            throw new Error(
-                `The className doesn't match the allowed format: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$`
-            );
+            throw new Error(`The className doesn't match the allowed format: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$`);
         }
-
         this.credentials = credentials;
         this.bucket = new Bucket(credentials);
         this.id = id;
         this.className = className;
         this.domain = domain;
-        this.itemPath = `${domain.toLowerCase()}/${className.toLowerCase()}/${id.slice(
-            0,
-            splay
-        )}/${id}`;
+        this.itemPath = `${domain.toLowerCase()}/${className.toLowerCase()}/${id.slice(0, splay)}/${id}`;
         this.splay = splay;
         this.roCrateFile = nodePath.join(this.itemPath, "ro-crate-metadata.json");
         this.inventoryFile = nodePath.join(this.itemPath, "nocfl.inventory.json");
@@ -129,7 +116,6 @@ export class Store {
         };
         this.indexer = new Indexer({ credentials });
     }
-
     /**
      * Check whether the item exists in the storage.
      * @return {Boolean}
@@ -140,7 +126,6 @@ export class Store {
         }
         return false;
     }
-
     /**
      * Get the item path.
      * @return {String}
@@ -148,7 +133,6 @@ export class Store {
     getItemPath() {
         return this.itemPath;
     }
-
     /**
      * Get the item identifier.
      * @return {Object}
@@ -156,7 +140,6 @@ export class Store {
     async getItemIdentifier() {
         return await this.getJSON({ target: "nocfl.identifier.json" });
     }
-
     /**
      * Get the item inventory file.
      * @return {Object}
@@ -164,7 +147,6 @@ export class Store {
     async getItemInventory() {
         return await this.getJSON({ target: "nocfl.inventory.json" });
     }
-
     /**
      * Check whether the path exists in the storage.
      * @param {Object} params
@@ -175,7 +157,6 @@ export class Store {
         let target = nodePath.join(this.itemPath, path);
         return await this.bucket.pathExists({ path: target });
     }
-
     /**
      * Return the file stat.
      * @param {Object} params
@@ -186,7 +167,6 @@ export class Store {
         let target = nodePath.join(this.itemPath, path);
         return await this.bucket.stat({ path: target });
     }
-
     /**
      * Create the item in the storage.
      * @return {Boolean}
@@ -200,12 +180,10 @@ export class Store {
             target: this.roCrateFile,
             json: this.roCrateSkeleton,
         });
-
         await this.bucket.put({
             target: this.inventoryFile,
             json: { content: { "ro-crate-metadata.json": roCrateFileHash } },
         });
-
         await this.bucket.put({
             target: this.identifierFile,
             json: {
@@ -216,7 +194,6 @@ export class Store {
                 splay: this.splay,
             },
         });
-
         // patch the index file
         await this.indexer.patchIndex({
             action: "PUT",
@@ -226,7 +203,6 @@ export class Store {
             splay: this.splay,
         });
     }
-
     /**
      * Get a file from the item on the storage.
      * @param {Object} params
@@ -237,7 +213,6 @@ export class Store {
         target = nodePath.join(this.itemPath, target);
         return await this.bucket.get({ target, localPath });
     }
-
     /**
      * Get file versions.
      * @param {Object} params
@@ -251,7 +226,6 @@ export class Store {
         let versions = files.Contents.map((c) => c.Key).sort();
         return [...versions.slice(1), versions[0]].reverse();
     }
-
     /**
      * Get a JSON file from the item on the storage.
      * @param {Object} params
@@ -261,7 +235,6 @@ export class Store {
     async getJSON({ localPath, target }) {
         return JSON.parse(await this.get({ localPath, target }));
     }
-
     /**
      * Get a presigned link to the file.
      * @param {Object} params
@@ -272,7 +245,6 @@ export class Store {
         target = nodePath.join(this.itemPath, target);
         return await this.bucket.getPresignedUrl({ target, download });
     }
-
     /**
      * Put a file into the item on the storage.
      * @param {Object} params
@@ -287,24 +259,14 @@ export class Store {
      * @param {Transfer[]} params.batch - an array of objects defining content to put into the store where the params
      *  are as for the single case. Uploads will be run 5 at a time.
      */
-    async put({
-        localPath = undefined,
-        json = undefined,
-        content = undefined,
-        target = undefined,
-        registerFile = true,
-        version = false,
-        batch = [],
-    }) {
+    async put({ localPath = undefined, json = undefined, content = undefined, target = undefined, registerFile = true, version = false, batch = [], }) {
         if (!(await this.itemExists())) {
             throw new Error(`The item doesn't exist`);
         }
-
-        if (!batch.length &amp;&amp; !target) {
+        if (!batch.length && !target) {
             // nothing to do
             return;
         }
-
         transfer = transfer.bind(this);
         updateCrateMetadata = updateCrateMetadata.bind(this);
         if (batch.length) {
@@ -313,16 +275,15 @@ export class Store {
                 let transfers = chunk.map((t) => transfer(t));
                 await Promise.all(transfers);
             }
-        } else {
+        }
+        else {
             await transfer({ localPath, json, content, target, registerFile, version });
         }
-
         // get the crate file
         let crate = await this.getJSON({ target: "ro-crate-metadata.json" });
         // console.log(crate["@graph"]);
-
         // patch in any updates that need to be patched in
-        if (target &amp;&amp; registerFile) {
+        if (target && registerFile) {
             crate["@graph"] = await updateCrateMetadata({
                 graph: crate["@graph"],
                 target,
@@ -340,76 +301,67 @@ export class Store {
                 }
             }
         }
-
         // update the ro crate file
         await this.bucket.put({
             target: this.roCrateFile,
             json: crate,
         });
-
         async function transfer({ localPath, json, content, target, version }) {
             if (specialFiles.includes(target)) {
-                throw new Error(
-                    `You can't upload a file called '${target} as that's a special file used by the system`
-                );
+                throw new Error(`You can't upload a file called '${target} as that's a special file used by the system`);
             }
             if (localPath) {
                 let hash = await sha512(localPath);
                 await this.__updateInventory({ target, hash });
-            } else if (json) {
+            }
+            else if (json) {
                 await this.__updateInventory({ target, hash: hasha(JSON.stringify(json)) });
-            } else {
+            }
+            else {
                 await this.__updateInventory({ target, hash: hasha(content) });
             }
             let s3Target = nodePath.join(this.itemPath, target);
             if (version) {
                 const date = new Date().toISOString();
-                let versionFile = nodePath.join(
-                    this.itemPath,
-                    `${nodePath.basename(
-                        target,
-                        nodePath.extname(target)
-                    )}.v${date}${nodePath.extname(target)}`
-                );
+                let versionFile = nodePath.join(this.itemPath, `${nodePath.basename(target, nodePath.extname(target))}.v${date}${nodePath.extname(target)}`);
                 try {
                     await this.bucket.copy({ source: s3Target, target: versionFile });
-                } catch (error) {
+                }
+                catch (error) {
                     if (error.message === "The specified key does not exist.") {
                         // no source file available - that's ok - ignore it - nothing to version yet
-                    } else {
+                    }
+                    else {
                         throw new Error(error.message);
                     }
                 }
                 await this.bucket.put({ localPath, json, content, target: s3Target });
-            } else {
+            }
+            else {
                 await this.bucket.put({ localPath, json, content, target: s3Target });
             }
         }
-
         async function updateCrateMetadata({ graph, target }) {
             // we don't register the ro crate file
-            if (registerFile &amp;&amp; target === "ro-crate-metadata.json") return graph;
-
+            if (registerFile && target === "ro-crate-metadata.json")
+                return graph;
             // find the root dataset
-            let rootDescriptor = graph.filter(
-                (e) => e["@id"] === "ro-crate-metadata.json" &amp;&amp; e["@type"] === "CreativeWork"
-            )[0];
+            let rootDescriptor = graph.filter((e) => e["@id"] === "ro-crate-metadata.json" && e["@type"] === "CreativeWork")[0];
             let rootDataset = graph.filter((e) => e["@id"] === rootDescriptor.about["@id"])[0];
             if (!rootDataset) {
                 console.log(`${this.itemPath}/ro-crate-metadata.json DOES NOT have a root dataset`);
                 return;
             }
-
             // update the hasPart property if required
             if (!rootDataset.hasPart) {
                 rootDataset.hasPart = [{ "@id": target }];
-            } else {
+            }
+            else {
                 let partReferenced = rootDataset.hasPart.filter((p) => p["@id"] === target);
                 if (!partReferenced.length) {
                     rootDataset.hasPart.push({ "@id": target });
                 }
             }
-
             // add a File entry to the crate is none there already
             let fileEntry = graph.filter((e) => e["@id"] === target);
             if (!fileEntry.length) {
@@ -426,40 +378,38 @@ export class Store {
                 });
             }
             graph = graph.map((e) => {
-                if (e["@id"] === rootDescriptor.about["@id"]) return rootDataset;
+                if (e["@id"] === rootDescriptor.about["@id"])
+                    return rootDataset;
                 return e;
             });
             return graph;
         }
     }
-
     /**
      * Remove a file or files from an item in the storage. Files will also be removed from the hasPart property of the root dataset.
      * @param {Object} params
-     * @param {String|Array.&lt;String>} [params.target] - the target name for the file or array of target files; this will be set relative to the item path
+     * @param {String|Array.<String>} [params.target] - the target name for the file or array of target files; this will be set relative to the item path
      * @param {String} [params.prefix] - file prefix; this will be set relative to the item path
      */
     async delete({ target = undefined, prefix = undefined }) {
         if (specialFiles.includes(target)) {
-            throw new Error(
-                `You can't delete a file called '${target} as that's a special file used by the system`
-            );
+            throw new Error(`You can't delete a file called '${target} as that's a special file used by the system`);
         }
-
         if (!(await this.itemExists())) {
             throw new Error(`The item doesn't exist`);
         }
         let crate = await this.getJSON({ target: "ro-crate-metadata.json" });
-
         if (target) {
-            if (!isString(target) &amp;&amp; !isArray(target)) {
+            if (!isString(target) && !isArray(target)) {
                 throw new Error(`target must be a string or array of strings`);
             }
-            if (isString(target)) target = [target];
+            if (isString(target))
+                target = [target];
             let keys = target.map((t) => nodePath.join(this.itemPath, t));
             await this.bucket.delete({ keys });
             crate["@graph"] = updateCrateMetadata({ graph: crate["@graph"], keys: target });
-        } else if (prefix) {
+        }
+        else if (prefix) {
             if (!isString(prefix)) {
                 throw new Error(`prefix must be a string`);
             }
@@ -471,39 +421,35 @@ export class Store {
             target: this.roCrateFile,
             json: crate,
         });
-
         function updateCrateMetadata({ graph, keys = [], prefix }) {
             // find the root dataset
-            let rootDescriptor = graph.filter(
-                (e) => e["@id"] === "ro-crate-metadata.json" &amp;&amp; e["@type"] === "CreativeWork"
-            )[0];
+            let rootDescriptor = graph.filter((e) => e["@id"] === "ro-crate-metadata.json" && e["@type"] === "CreativeWork")[0];
             let rootDataset = graph.filter((e) => e["@id"] === rootDescriptor.about["@id"])[0];
             if (!rootDataset) {
                 console.log(`${this.itemPath}/ro-crate-metadata.json DOES NOT have a root dataset`);
                 return;
             }
-
             if (keys.length) {
                 let hasPart = rootDataset.hasPart.filter((e) => {
                     return !keys.includes(e["@id"]);
                 });
                 rootDataset.hasPart = hasPart;
                 graph = graph.filter((e) => !keys.includes(e["@id"]));
-            } else if (prefix) {
+            }
+            else if (prefix) {
                 let re = new RegExp(prefix);
                 let hasPart = rootDataset.hasPart.filter((e) => !e["@id"].match(re));
                 rootDataset.hasPart = hasPart;
                 graph = graph.filter((e) => !e["@id"].match(re));
             }
-
             graph = graph.map((e) => {
-                if (e["@id"] === rootDescriptor.about["@id"]) return rootDataset;
+                if (e["@id"] === rootDescriptor.about["@id"])
+                    return rootDataset;
                 return e;
             });
             return graph;
         }
     }
-
     /**
      * Delete the item.
      */
@@ -512,7 +458,6 @@ export class Store {
             throw new Error(`The item doesn't exist`);
         }
         await this.bucket.delete({ prefix: `${this.itemPath}/` });
-
         // patch the index file
         await this.indexer.patchIndex({
             action: "DELETE",
@@ -522,7 +467,6 @@ export class Store {
             splay: this.splay,
         });
     }
-
     /**
      * Recursively walk and list all of the files for the item.
      * @return a list of files
@@ -535,7 +479,6 @@ export class Store {
             return r;
         });
         return resources;
-
         async function listItemResources({ continuationToken }) {
             let resources = await this.bucket.listObjects({
                 prefix: `${this.itemPath}/`,
@@ -546,12 +489,12 @@ export class Store {
                     ...resources.Contents,
                     ...(await listResources(resources.NextContinuationToken)),
                 ];
-            } else {
+            }
+            else {
                 return resources.Contents;
             }
         }
     }
-
     /**
      * Update the file inventory.
      * @private
@@ -569,13 +512,10 @@ export class Store {
         });
     }
 }
-
-const sha512 = (path) =>
-    new Promise((resolve, reject) => {
-        const hash = crypto.createHash("sha512");
-        const rs = createReadStream(path);
-        rs.on("error", reject);
-        rs.on("data", (chunk) => hash.update(chunk));
-        rs.on("end", () => resolve(hash.digest("hex")));
-    });
-</code></pre></article></section></div></div></div><div class="search-container" id="PkfLWpAbet" style="display:none"><div class="wrapper" id="iCxFxjkHbP"><button class="icon-button search-close-button" id="VjLlGakifb" aria-label="close search"><svg><use xlink:href="#close-icon"></use></svg></button><div class="search-box-c"><svg><use xlink:href="#search-icon"></use></svg> <input type="text" id="vpcKVYIppa" class="search-input" placeholder="Search..." autofocus></div><div class="search-result-c" id="fWwVHRuDuN"><span class="search-result-c-text">Type anything to view search result</span></div></div></div><div class="mobile-menu-icon-container"><button class="icon-button" id="mobile-menu" data-isopen="false" aria-label="menu"><svg><use xlink:href="#menu-icon"></use></svg></button></div><div id="mobile-sidebar" class="mobile-sidebar-container"><div class="mobile-sidebar-wrapper"><a href="/" class="sidebar-title sidebar-title-anchor">Home</a><div class="mobile-nav-links"></div><div class="mobile-sidebar-items-c"><div class="sidebar-section-title with-arrow" data-isopen="false" id="cPqssqksOcifjl3IlQeHH"><div>Classes</div><svg><use xlink:href="#down-icon"></use></svg></div><div class="sidebar-section-children-container"><div class="sidebar-section-children"><a href="Store.html">Store</a></div><div class="sidebar-section-children"><a href="Walker.html">Walker</a></div></div><div class="sidebar-section-title with-arrow" data-isopen="false" id="WjyPULSqaLVtZBWYrOe4j"><div>Tutorials</div><svg><use xlink:href="#down-icon"></use></svg></div><div class="sidebar-section-children-container"><div class="sidebar-section-children"><a href="tutorial-why-not-ocfl.html">why-not-ocfl</a></div></div><div class="sidebar-section-title with-arrow" data-isopen="false" id="jks5Rgf4rUXiciRLTsZCD"><div>Global</div><svg><use xlink:href="#down-icon"></use></svg></div><div class="sidebar-section-children-container"><div class="sidebar-section-children"><a href="global.html#Credentials">Credentials</a></div><div class="sidebar-section-children"><a href="global.html#Transfer">Transfer</a></div></div></div><div class="mobile-navbar-actions"><div class="navbar-right-item"><button class="icon-button search-button" aria-label="open-search"><svg><use xlink:href="#search-icon"></use></svg></button></div><div class="navbar-right-item"><button class="icon-button theme-toggle" aria-label="toggle-theme"><svg><use class="theme-svg-use" xlink:href="#dark-theme-icon"></use></svg></button></div><div class="navbar-right-item"><button class="icon-button font-size" aria-label="change-font-size"><svg><use xlink:href="#font-size-icon"></use></svg></button></div></div></div></div><script type="text/javascript" src="scripts/core.min.js"></script><script src="scripts/search.min.js" defer="defer"></script><script src="scripts/third-party/fuse.js" defer="defer"></script><script type="text/javascript">tocbot.init({tocSelector:"#eed4d2a0bfd64539bb9df78095dec881",contentSelector:".main-content",headingSelector:"h1, h2, h3",hasInnerContainers:!0,scrollContainer:".main-content",headingsOffset:130,onClick:bringLinkToView})</script></body></html>
+const sha512 = (path) => new Promise((resolve, reject) => {
+    const hash = crypto.createHash("sha512");
+    const rs = createReadStream(path);
+    rs.on("error", reject);
+    rs.on("data", (chunk) => hash.update(chunk));
+    rs.on("end", () => resolve(hash.digest("hex")));
+});
