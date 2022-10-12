@@ -1,14 +1,12 @@
 {
     "name": "@coedl/nocfl-js",
-    "version": "1.12.0",
+    "version": "1.12.1-0",
     "description": "An opinionated S3 storage library informed by ocfl but without versioning",
-    "main": "./dist/cjs/index.js",
     "type": "module",
     "scripts": {
         "develop": "npm run test:watch",
-        "build": "rm -rf dist/* && concurrently 'npm:build:cjs' 'npm:build:mjs' && npm run create-package && npm run generate-docs",
-        "build:cjs": "tsc -p tsconfig-es5.json",
-        "build:mjs": "tsc -p tsconfig-mjs.json",
+        "build": "rm -rf dist/* && npm run unbuild && npm run generate-docs",
+        "unbuild": "./node_modules/.bin/unbuild",
         "create-package": "./create-package-file",
         "test": "./node_modules/.bin/jest --runInBand",
         "test:watch": "npm run minio && sleep 5 && ./node_modules/.bin/jest --watch --runInBand && npm run cleanup",
@@ -22,10 +20,17 @@
     },
     "author": "Marco La Rosa",
     "license": "GPLv3",
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.mjs",
     "exports": {
-        "import": "./dist/mjs/index.js",
-        "require": "./dist/cjs/index.js"
+        ".": {
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.cjs"
+        }
     },
+    "files": [
+        "dist"
+    ],
     "dependencies": {
         "@aws-sdk/client-s3": "^3.150.0",
         "@aws-sdk/lib-storage": "^3.150.0",
@@ -42,6 +47,7 @@
         "concurrently": "^7.3.0",
         "jest": "^28.1.3",
         "jsdoc": "^3.6.11",
-        "typescript": "^4.7.4"
+        "typescript": "^4.7.4",
+        "unbuild": "^0.8.11"
     }
 }
