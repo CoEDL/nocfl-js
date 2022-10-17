@@ -1,7 +1,5 @@
 'use strict';
 
-Object.defineProperty(exports, '__esModule', { value: true });
-
 const clientS3 = require('@aws-sdk/client-s3');
 const libStorage = require('@aws-sdk/lib-storage');
 const s3RequestPresigner = require('@aws-sdk/s3-request-presigner');
@@ -12,30 +10,21 @@ const crypto = require('crypto');
 const hasha = require('hasha');
 const EventEmitter = require('events');
 
-function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'default' in e ? e["default"] : e; }
-
-function _interopNamespace(e) {
-    if (e && e.__esModule) return e;
+function _interopNamespaceDefault(e) {
     const n = Object.create(null);
     if (e) {
         for (const k in e) {
             n[k] = e[k];
         }
     }
-    n["default"] = e;
+    n.default = e;
     return n;
 }
 
-const fsExtra__default = /*#__PURE__*/_interopDefaultLegacy(fsExtra);
-const lodashPkg__default = /*#__PURE__*/_interopDefaultLegacy(lodashPkg);
-const nodePath__default = /*#__PURE__*/_interopDefaultLegacy(nodePath);
-const nodePath__namespace = /*#__PURE__*/_interopNamespace(nodePath);
-const crypto__default = /*#__PURE__*/_interopDefaultLegacy(crypto);
-const hasha__default = /*#__PURE__*/_interopDefaultLegacy(hasha);
-const EventEmitter__default = /*#__PURE__*/_interopDefaultLegacy(EventEmitter);
+const nodePath__namespace = /*#__PURE__*/_interopNamespaceDefault(nodePath);
 
-const { createReadStream: createReadStream$1, createWriteStream, readdir, ensureDir, stat } = fsExtra__default;
-const { isEmpty } = lodashPkg__default;
+const { createReadStream: createReadStream$1, createWriteStream, readdir, ensureDir, stat } = fsExtra;
+const { isEmpty } = lodashPkg;
 const MB = 1024 * 1024;
 const maxFileNameLength = 1024;
 class Bucket {
@@ -169,8 +158,8 @@ class Bucket {
     return JSON.parse(data);
   }
   async copy({ source, target }) {
-    source = nodePath__default.join(this.bucket, source);
-    target = nodePath__default.join(target);
+    source = nodePath.join(this.bucket, source);
+    target = nodePath.join(target);
     const command = new clientS3.CopyObjectCommand({
       Bucket: this.bucket,
       CopySource: source,
@@ -228,21 +217,21 @@ class Bucket {
       let entries = await readdir(folder, { withFileTypes: true });
       let source, target;
       for (let entry of entries) {
-        source = nodePath__default.join(folder, entry.name);
-        target = source.replace(nodePath__default.join(nodePath__default.dirname(root), "/"), "");
+        source = nodePath.join(folder, entry.name);
+        target = source.replace(nodePath.join(nodePath.dirname(root), "/"), "");
         paths.push({
           source,
           target,
           type: entry.isDirectory() ? "directory" : "file"
         });
         if (entry.isDirectory()) {
-          await walk({ folder: nodePath__default.join(folder, entry.name), root });
+          await walk({ folder: nodePath.join(folder, entry.name), root });
         }
       }
     }
   }
   async getPresignedUrl({ target, expiresIn = 3600, download = false, host }) {
-    let filename = nodePath__default.basename(target);
+    let filename = nodePath.basename(target);
     const downloadParams = {
       Bucket: this.bucket,
       Key: target
@@ -255,7 +244,7 @@ class Bucket {
   }
 }
 
-class Walker extends EventEmitter__default {
+class Walker extends EventEmitter {
   constructor({ credentials }) {
     super();
     if (!credentials)
@@ -298,7 +287,7 @@ class Walker extends EventEmitter__default {
   }
 }
 
-const { orderBy, uniqBy } = lodashPkg__default;
+const { orderBy, uniqBy } = lodashPkg;
 class Indexer {
   constructor({ credentials }) {
     if (!credentials)
@@ -390,8 +379,8 @@ class Indexer {
   }
 }
 
-const { createReadStream } = fsExtra__default;
-const { isString, isArray, chunk } = lodashPkg__default;
+const { createReadStream } = fsExtra;
+const { isString, isArray, chunk } = lodashPkg;
 const specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
 class Store {
   constructor({ domain = void 0, className, id, credentials, splay = 1 }) {
@@ -502,7 +491,7 @@ class Store {
     if (await this.itemExists()) {
       throw new Error(`An item with that identifier already exists`);
     }
-    let roCrateFileHash = hasha__default(JSON.stringify(this.roCrateSkeleton));
+    let roCrateFileHash = hasha(JSON.stringify(this.roCrateSkeleton));
     await this.bucket.put({
       target: this.roCrateFile,
       json: this.roCrateSkeleton
@@ -604,9 +593,9 @@ class Store {
         let hash = await sha512(localPath2);
         await this.__updateInventory({ target: target2, hash });
       } else if (json2) {
-        await this.__updateInventory({ target: target2, hash: hasha__default(JSON.stringify(json2)) });
+        await this.__updateInventory({ target: target2, hash: hasha(JSON.stringify(json2)) });
       } else {
-        await this.__updateInventory({ target: target2, hash: hasha__default(content2) });
+        await this.__updateInventory({ target: target2, hash: hasha(content2) });
       }
       let s3Target = nodePath__namespace.join(this.itemPath, target2);
       if (version2) {
@@ -776,7 +765,7 @@ class Store {
   }
 }
 const sha512 = (path) => new Promise((resolve, reject) => {
-  const hash = crypto__default.createHash("sha512");
+  const hash = crypto.createHash("sha512");
   const rs = createReadStream(path);
   rs.on("error", reject);
   rs.on("data", (chunk2) => hash.update(chunk2));
