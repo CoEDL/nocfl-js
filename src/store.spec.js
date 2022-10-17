@@ -386,27 +386,19 @@ describe("Test storage actions", () => {
         await bucket.delete({ prefix: store.getItemPath() });
         await remove(path.join("/tmp", file));
     });
-    test("it should be able to upload / download 12 files in chunks of 5", async () => {
+    test("it should be able to upload / download 9 files in chunks of 5", async () => {
         const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
 
         let files = ["s3.spec.js", "store.js", "store.spec.js", "index.js"];
         let batch = files.map((f) => ({ localPath: path.join(__dirname, f), target: f }));
 
-        files = [
-            "index.d.ts",
-            "index.js",
-            "package.json",
-            "s3.d.ts",
-            "s3.js",
-            "store.d.ts",
-            "store.js",
-        ];
+        files = ["index.cjs", "index.mjs"];
         batch = [
             ...batch,
             ...files.map((f) => ({
-                localPath: path.join(__dirname, "..", "dist", "cjs", f),
-                target: path.join("dist", "cjs", f),
+                localPath: path.join(__dirname, "..", "dist", f),
+                target: path.join("dist", f),
             })),
         ];
 
@@ -417,7 +409,7 @@ describe("Test storage actions", () => {
         expect(rootDataset.hasPart.length).toEqual(batch.length);
 
         let resources = await store.listResources();
-        expect(resources.length).toEqual(14);
+        expect(resources.length).toEqual(9);
 
         await bucket.delete({ prefix: store.getItemPath() });
     });
