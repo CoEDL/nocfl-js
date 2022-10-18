@@ -386,7 +386,7 @@ export class Store {
 
         async function updateCrateMetadata({ graph, target }) {
             // we don't register the ro crate file
-            if (registerFile && target === "ro-crate-metadata.json") return graph;
+            if (target === "ro-crate-metadata.json") return graph;
 
             // find the root dataset
             let rootDescriptor = graph.filter(
@@ -402,6 +402,7 @@ export class Store {
             if (!rootDataset.hasPart) {
                 rootDataset.hasPart = [{ "@id": target }];
             } else {
+                if (!isArray(rootDataset.hasPart)) rootDataset.hasPart = [rootDataset.hasPart];
                 let partReferenced = rootDataset.hasPart.filter((p) => p["@id"] === target);
                 if (!partReferenced.length) {
                     rootDataset.hasPart.push({ "@id": target });

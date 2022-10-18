@@ -6,7 +6,6 @@ import {
     HeadObjectCommand,
     ListBucketsCommand,
     GetObjectCommand,
-    PutObjectCommand,
     CopyObjectCommand,
     ListObjectsV2Command,
     DeleteObjectsCommand,
@@ -14,7 +13,7 @@ import {
 import { Upload } from "@aws-sdk/lib-storage";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import fsExtra from "fs-extra";
-const { createReadStream, createWriteStream, readdir, ensureDir, stat } = fsExtra;
+const { createReadStream, createWriteStream, readdir, stat } = fsExtra;
 import lodash from "lodash";
 const { isEmpty } = lodash;
 // const AWS = require("aws-sdk");
