@@ -23,7 +23,7 @@ function _interopNamespaceDefault(e) {
 
 const nodePath__namespace = /*#__PURE__*/_interopNamespaceDefault(nodePath);
 
-const { createReadStream: createReadStream$1, createWriteStream, readdir, ensureDir, stat } = fsExtra;
+const { createReadStream: createReadStream$1, createWriteStream, readdir, stat } = fsExtra;
 const { isEmpty } = lodashPkg;
 const MB = 1024 * 1024;
 const maxFileNameLength = 1024;
@@ -620,7 +620,7 @@ class Store {
       }
     }
     async function updateCrateMetadata({ graph, target: target2 }) {
-      if (registerFile && target2 === "ro-crate-metadata.json")
+      if (target2 === "ro-crate-metadata.json")
         return graph;
       let rootDescriptor = graph.filter(
         (e) => e["@id"] === "ro-crate-metadata.json" && e["@type"] === "CreativeWork"
@@ -633,6 +633,8 @@ class Store {
       if (!rootDataset.hasPart) {
         rootDataset.hasPart = [{ "@id": target2 }];
       } else {
+        if (!isArray(rootDataset.hasPart))
+          rootDataset.hasPart = [rootDataset.hasPart];
         let partReferenced = rootDataset.hasPart.filter((p) => p["@id"] === target2);
         if (!partReferenced.length) {
           rootDataset.hasPart.push({ "@id": target2 });
