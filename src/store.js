@@ -6,7 +6,7 @@ import * as nodePath from "path";
 import hasha from "hasha";
 import { Indexer } from "./indexer.js";
 import lodashPkg from "lodash";
-const { isString, isArray, chunk } = lodashPkg;
+const { isString, isArray, chunk, uniqBy } = lodashPkg;
 
 const specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
 
@@ -304,7 +304,6 @@ export class Store {
         }
 
         transfer = transfer.bind(this);
-        updateCrateMetadata = updateCrateMetadata.bind(this);
         if (batch.length) {
             let chunks = chunk(batch, 5);
             for (let chunk of chunks) {
@@ -317,13 +316,12 @@ export class Store {
 
         // get the crate file
         let crate = await this.getJSON({ target: "ro-crate-metadata.json" });
-        // console.log(crate["@graph"]);
 
         // patch in any updates that need to be patched in
         if (target && registerFile) {
-            crate["@graph"] = await updateCrateMetadata({
+            crate["@graph"] = await this.__updateCrateMetadata({
                 graph: crate["@graph"],
-                target,
+                add_target: target,
             });
         }
         if (batch.length) {
@@ -331,9 +329,9 @@ export class Store {
                 // if registerFile = undefined set to true by default
                 registerFile = registerFile !== undefined ? registerFile : true;
                 if (registerFile) {
-                    crate["@graph"] = await updateCrateMetadata({
+                    crate["@graph"] = await this.__updateCrateMetadata({
                         graph: crate["@graph"],
-                        target,
+                        add_target: target,
                     });
                 }
             }
@@ -383,53 +381,6 @@ export class Store {
                 await this.bucket.put({ localPath, json, content, target: s3Target });
             }
         }
-
-        async function updateCrateMetadata({ graph, target }) {
-            // we don't register the ro crate file
-            if (target === "ro-crate-metadata.json") return graph;
-
-            // find the root dataset
-            let rootDescriptor = graph.filter(
-                (e) => e["@id"] === "ro-crate-metadata.json" && e["@type"] === "CreativeWork"
-            )[0];
-            let rootDataset = graph.filter((e) => e["@id"] === rootDescriptor.about["@id"])[0];
-            if (!rootDataset) {
-                console.log(`${this.itemPath}/ro-crate-metadata.json DOES NOT have a root dataset`);
-                return;
-            }
-
-            // update the hasPart property if required
-            if (!rootDataset.hasPart) {
-                rootDataset.hasPart = [{ "@id": target }];
-            } else {
-                if (!isArray(rootDataset.hasPart)) rootDataset.hasPart = [rootDataset.hasPart];
-                let partReferenced = rootDataset.hasPart.filter((p) => p["@id"] === target);
-                if (!partReferenced.length) {
-                    rootDataset.hasPart.push({ "@id": target });
-                }
-            }
-
-            // add a File entry to the crate is none there already
-            let fileEntry = graph.filter((e) => e["@id"] === target);
-            if (!fileEntry.length) {
-                let stat = await this.stat({ path: target });
-                graph.push({
-                    "@id": target,
-                    "@type": "File",
-                    name: target,
-                    contentSize: stat.ContentLength,
-                    dateModified: stat.LastModified,
-                    "@reverse": {
-                        hasPart: [{ "@id": "./" }],
-                    },
-                });
-            }
-            graph = graph.map((e) => {
-                if (e["@id"] === rootDescriptor.about["@id"]) return rootDataset;
-                return e;
-            });
-            return graph;
-        }
     }
 
     /**
@@ -457,51 +408,25 @@ export class Store {
             if (isString(target)) target = [target];
             let keys = target.map((t) => nodePath.join(this.itemPath, t));
             await this.bucket.delete({ keys });
-            crate["@graph"] = updateCrateMetadata({ graph: crate["@graph"], keys: target });
+            crate["@graph"] = await this.__updateCrateMetadata({
+                graph: crate["@graph"],
+                remove_keys: target,
+            });
         } else if (prefix) {
             if (!isString(prefix)) {
                 throw new Error(`prefix must be a string`);
             }
             await this.bucket.delete({ prefix: nodePath.join(this.itemPath, prefix) });
-            crate["@graph"] = updateCrateMetadata({ graph: crate["@graph"], prefix });
+            crate["@graph"] = await this.__updateCrateMetadata({
+                graph: crate["@graph"],
+                remove_prefix: prefix,
+            });
         }
         // update the ro crate file
         await this.bucket.put({
             target: this.roCrateFile,
             json: crate,
         });
-
-        function updateCrateMetadata({ graph, keys = [], prefix }) {
-            // find the root dataset
-            let rootDescriptor = graph.filter(
-                (e) => e["@id"] === "ro-crate-metadata.json" && e["@type"] === "CreativeWork"
-            )[0];
-            let rootDataset = graph.filter((e) => e["@id"] === rootDescriptor.about["@id"])[0];
-            if (!rootDataset) {
-                console.log(`${this.itemPath}/ro-crate-metadata.json DOES NOT have a root dataset`);
-                return;
-            }
-            if (!isArray(rootDataset.hasPart)) [rootDataset.hasPart];
-
-            if (keys.length) {
-                let hasPart = rootDataset.hasPart.filter((e) => {
-                    return !keys.includes(e["@id"]);
-                });
-                rootDataset.hasPart = hasPart;
-                graph = graph.filter((e) => !keys.includes(e["@id"]));
-            } else if (prefix) {
-                let re = new RegExp(prefix);
-                let hasPart = rootDataset.hasPart.filter((e) => !e["@id"].match(re));
-                rootDataset.hasPart = hasPart;
-                graph = graph.filter((e) => !e["@id"].match(re));
-            }
-
-            graph = graph.map((e) => {
-                if (e["@id"] === rootDescriptor.about["@id"]) return rootDataset;
-                return e;
-            });
-            return graph;
-        }
     }
 
     /**
@@ -567,6 +492,82 @@ export class Store {
             target: this.inventoryFile,
             json: inventory,
         });
+    }
+
+    /**
+     * Update the hasPart property of the root dataset.
+     * @private
+     * @param {Object} params
+     * @param {Object} params.graph - crate['@graph']
+     * @param {String} params.add_target - the name of a file to add to the hasPart property
+     * @param {Array.<String>} params.remove_keys - an array of keys and entities to remove from the graph
+     * @param {String} params.remove_prefix - a string prefix to match on and remove from the graph
+     * @return the graph
+     */
+    async __updateCrateMetadata({
+        graph,
+        add_target = undefined,
+        remove_keys = [],
+        remove_prefix = "",
+    }) {
+        // find the root dataset
+        let rootDescriptor = graph.filter(
+            (e) => e["@id"] === "ro-crate-metadata.json" && e["@type"] === "CreativeWork"
+        )[0];
+        let rootDataset = graph.filter((e) => e["@id"] === rootDescriptor.about["@id"])[0];
+        if (!rootDataset) {
+            console.log(`${this.itemPath}/ro-crate-metadata.json DOES NOT have a root dataset`);
+            return;
+        }
+
+        // ensure hasPart defined and is array
+        if (!rootDataset.hasPart) rootDataset.hasPart = [];
+        if (!isArray(rootDataset.hasPart)) rootDataset.hasPart = [rootDataset.hasPart];
+
+        if (add_target && add_target !== "ro-crate-metadata.json") {
+            const target = add_target;
+            // we don't register the ro crate file
+
+            // update the hasPart property
+            rootDataset.hasPart.push({ "@id": target });
+            rootDataset.hasPart = uniqBy(rootDataset.hasPart, "@id");
+
+            // add a File entry to the crate is none there already
+            let fileEntry = graph.filter((e) => e["@id"] === target);
+            if (!fileEntry.length) {
+                let stat = await this.stat({ path: target });
+                graph.push({
+                    "@id": target,
+                    "@type": "File",
+                    name: target,
+                    contentSize: stat.ContentLength,
+                    dateModified: stat.LastModified,
+                    "@reverse": {
+                        hasPart: [{ "@id": "./" }],
+                    },
+                });
+            }
+        } else if (remove_keys.length) {
+            let hasPart = rootDataset.hasPart.filter((e) => {
+                return !remove_keys.includes(e["@id"]);
+            });
+            rootDataset.hasPart = hasPart;
+            graph = graph.filter((e) => !remove_keys.includes(e["@id"]));
+        } else if (remove_prefix) {
+            let re = new RegExp(remove_prefix);
+            let hasPart = rootDataset.hasPart.filter((e) => !e["@id"].match(re));
+            rootDataset.hasPart = hasPart;
+            graph = graph.filter((e) => !e["@id"].match(re));
+        } else {
+            // nothing to do - just return the graph
+            return graph;
+        }
+
+        graph = graph.map((e) => {
+            if (e["@id"] === rootDescriptor.about["@id"]) return rootDataset;
+            return e;
+        });
+        return graph;
     }
 }
 
