@@ -701,6 +701,8 @@ class Store {
         console.log(`${this.itemPath}/ro-crate-metadata.json DOES NOT have a root dataset`);
         return;
       }
+      if (!isArray(rootDataset.hasPart))
+        [rootDataset.hasPart];
       if (keys.length) {
         let hasPart = rootDataset.hasPart.filter((e) => {
           return !keys.includes(e["@id"]);
