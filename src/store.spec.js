@@ -178,10 +178,43 @@ describe("Test storage actions", () => {
         const file = "s3.js";
         const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createItem();
-        await store.put({ target: file, localPath: path.join(__dirname, file) });
+        await store.put({
+            target: file,
+            localPath: path.join(__dirname, file),
+            mimetype: "application/nothing",
+        });
 
         let resources = await store.listResources();
         expect(getFile({ resources, file }).Key).toEqual(file);
+
+        await bucket.delete({ prefix: store.getItemPath() });
+    });
+    test("it should be able to upload a file and determine / set the mimetype", async () => {
+        const file = "s3.js";
+        const store = new Store({ domain, className: "item", id: "test", credentials });
+        await store.createItem();
+
+        // figure out the mimetype
+        await store.put({
+            target: file,
+            localPath: path.join(__dirname, file),
+        });
+        let crate = await store.getJSON({ target: "ro-crate-metadata.json" });
+        let entity = crate["@graph"].filter((e) => e["@id"] === "s3.js")[0];
+        expect(entity.encodingFormat).toEqual("application/javascript");
+        await store.delete({ target: "s3.js" });
+
+        // set the mimetype
+        await store.put({
+            target: file,
+            localPath: path.join(__dirname, file),
+            mimetype: "application/nothing",
+        });
+        crate = await store.getJSON({
+            target: "ro-crate-metadata.json",
+        });
+        entity = crate["@graph"].filter((e) => e["@id"] === "s3.js")[0];
+        expect(entity.encodingFormat).toEqual("application/nothing");
 
         await bucket.delete({ prefix: store.getItemPath() });
     });
@@ -313,10 +346,7 @@ describe("Test storage actions", () => {
 
         let batch = [
             { localPath: path.join(__dirname, "s3.js"), target: "s3.js" },
-            {
-                localPath: path.join(__dirname, "s3.spec.js"),
-                target: "s3.spec.js",
-            },
+            { json: { some: "thing" }, target: "something.json" },
         ];
 
         await store.put({ batch });
@@ -326,7 +356,7 @@ describe("Test storage actions", () => {
             "nocfl.inventory.json",
             "ro-crate-metadata.json",
             "s3.js",
-            "s3.spec.js",
+            "something.json",
         ]);
         expect(resources.length).toEqual(5);
 
@@ -338,11 +368,16 @@ describe("Test storage actions", () => {
                 "@id": "s3.js",
             },
             {
-                "@id": "s3.spec.js",
+                "@id": "something.json",
             },
         ]);
         let files = crate["@graph"].filter((e) => e["@type"] === "File");
         expect(files.length).toEqual(2);
+
+        expect(files.map((f) => f.encodingFormat)).toEqual([
+            "application/javascript",
+            "application/json",
+        ]);
 
         await bucket.delete({ prefix: store.getItemPath() });
         await remove(path.join("/tmp", file));

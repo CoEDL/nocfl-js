@@ -5,6 +5,7 @@ import crypto from "crypto";
 import * as nodePath from "path";
 import hasha from "hasha";
 import { Indexer } from "./indexer.js";
+import mime from "mime-types";
 import lodashPkg from "lodash";
 const { isString, isArray, chunk, uniqBy } = lodashPkg;
 
@@ -282,6 +283,7 @@ export class Store {
      *  The file will be registered in the hasPart property of the root dataset if there isn't already an entry for the file.
      * @param {Boolean} params.version=false - whether the file should be versioned. If true, the existing file will be copied
      *  to ${file}.v${date as ISO String}.{ext} before the new version is uploaded to the target name
+     * @param {String} params.mimetype - the mimetype of the file. If not defined, the library will try to determine it.
      * @param {Transfer[]} params.batch - an array of objects defining content to put into the store where the params
      *  are as for the single case. Uploads will be run 5 at a time.
      */
@@ -292,6 +294,7 @@ export class Store {
         target = undefined,
         registerFile = true,
         version = false,
+        mimetype = undefined,
         batch = [],
     }) {
         if (!(await this.itemExists())) {
@@ -322,6 +325,7 @@ export class Store {
             crate["@graph"] = await this.__updateCrateMetadata({
                 graph: crate["@graph"],
                 add_target: target,
+                mimetype,
             });
         }
         if (batch.length) {
@@ -332,6 +336,7 @@ export class Store {
                     crate["@graph"] = await this.__updateCrateMetadata({
                         graph: crate["@graph"],
                         add_target: target,
+                        mimetype,
                     });
                 }
             }
@@ -509,6 +514,7 @@ export class Store {
         add_target = undefined,
         remove_keys = [],
         remove_prefix = "",
+        mimetype = undefined,
     }) {
         // find the root dataset
         let rootDescriptor = graph.filter(
@@ -536,7 +542,8 @@ export class Store {
             let fileEntry = graph.filter((e) => e["@id"] === target);
             if (!fileEntry.length) {
                 let stat = await this.stat({ path: target });
-                graph.push({
+                if (!mimetype) mimetype = mime.lookup(target);
+                let entity = {
                     "@id": target,
                     "@type": "File",
                     name: target,
@@ -545,7 +552,9 @@ export class Store {
                     "@reverse": {
                         hasPart: [{ "@id": "./" }],
                     },
-                });
+                };
+                if (mimetype) entity.encodingFormat = mimetype;
+                graph.push(entity);
             }
         } else if (remove_keys.length) {
             let hasPart = rootDataset.hasPart.filter((e) => {
