@@ -8,6 +8,7 @@ import nodePath__default from 'path';
 import crypto from 'crypto';
 import hasha from 'hasha';
 import EventEmitter from 'events';
+import mime from 'mime-types';
 
 const { createReadStream: createReadStream$1, createWriteStream, readdir, stat } = fsExtra;
 const { isEmpty } = lodashPkg;
@@ -273,7 +274,7 @@ class Walker extends EventEmitter {
   }
 }
 
-const { orderBy, uniqBy } = lodashPkg;
+const { orderBy, uniqBy: uniqBy$1 } = lodashPkg;
 class Indexer {
   constructor({ credentials }) {
     if (!credentials)
@@ -335,7 +336,7 @@ class Indexer {
     } else if (action === "DELETE") {
       indexFile = indexFile.filter((i) => i.id !== id);
     }
-    indexFile = uniqBy(indexFile, "id");
+    indexFile = uniqBy$1(indexFile, "id");
     await this.bucket.put({ target: indexFileName, json: indexFile });
   }
   async listIndices({ domain, className }) {
@@ -366,7 +367,7 @@ class Indexer {
 }
 
 const { createReadStream } = fsExtra;
-const { isString, isArray, chunk } = lodashPkg;
+const { isString, isArray, chunk, uniqBy } = lodashPkg;
 const specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
 class Store {
   constructor({ domain = void 0, className, id, credentials, splay = 1 }) {
@@ -528,6 +529,7 @@ class Store {
     target = void 0,
     registerFile = true,
     version = false,
+    mimetype = void 0,
     batch = []
   }) {
     if (!await this.itemExists()) {
@@ -537,7 +539,6 @@ class Store {
       return;
     }
     transfer = transfer.bind(this);
-    updateCrateMetadata = updateCrateMetadata.bind(this);
     if (batch.length) {
       let chunks = chunk(batch, 5);
       for (let chunk2 of chunks) {
@@ -549,18 +550,20 @@ class Store {
     }
     let crate = await this.getJSON({ target: "ro-crate-metadata.json" });
     if (target && registerFile) {
-      crate["@graph"] = await updateCrateMetadata({
+      crate["@graph"] = await this.__updateCrateMetadata({
         graph: crate["@graph"],
-        target
+        add_target: target,
+        mimetype
       });
     }
     if (batch.length) {
       for (let { target: target2, registerFile: registerFile2 } of batch) {
         registerFile2 = registerFile2 !== void 0 ? registerFile2 : true;
         if (registerFile2) {
-          crate["@graph"] = await updateCrateMetadata({
+          crate["@graph"] = await this.__updateCrateMetadata({
             graph: crate["@graph"],
-            target: target2
+            add_target: target2,
+            mimetype
           });
         }
       }
@@ -605,48 +608,6 @@ class Store {
         await this.bucket.put({ localPath: localPath2, json: json2, content: content2, target: s3Target });
       }
     }
-    async function updateCrateMetadata({ graph, target: target2 }) {
-      if (target2 === "ro-crate-metadata.json")
-        return graph;
-      let rootDescriptor = graph.filter(
-        (e) => e["@id"] === "ro-crate-metadata.json" && e["@type"] === "CreativeWork"
-      )[0];
-      let rootDataset = graph.filter((e) => e["@id"] === rootDescriptor.about["@id"])[0];
-      if (!rootDataset) {
-        console.log(`${this.itemPath}/ro-crate-metadata.json DOES NOT have a root dataset`);
-        return;
-      }
-      if (!rootDataset.hasPart) {
-        rootDataset.hasPart = [{ "@id": target2 }];
-      } else {
-        if (!isArray(rootDataset.hasPart))
-          rootDataset.hasPart = [rootDataset.hasPart];
-        let partReferenced = rootDataset.hasPart.filter((p) => p["@id"] === target2);
-        if (!partReferenced.length) {
-          rootDataset.hasPart.push({ "@id": target2 });
-        }
-      }
-      let fileEntry = graph.filter((e) => e["@id"] === target2);
-      if (!fileEntry.length) {
-        let stat = await this.stat({ path: target2 });
-        graph.push({
-          "@id": target2,
-          "@type": "File",
-          name: target2,
-          contentSize: stat.ContentLength,
-          dateModified: stat.LastModified,
-          "@reverse": {
-            hasPart: [{ "@id": "./" }]
-          }
-        });
-      }
-      graph = graph.map((e) => {
-        if (e["@id"] === rootDescriptor.about["@id"])
-          return rootDataset;
-        return e;
-      });
-      return graph;
-    }
   }
   async delete({ target = void 0, prefix = void 0 }) {
     if (specialFiles.includes(target)) {
@@ -666,48 +627,24 @@ class Store {
         target = [target];
       let keys = target.map((t) => nodePath.join(this.itemPath, t));
       await this.bucket.delete({ keys });
-      crate["@graph"] = updateCrateMetadata({ graph: crate["@graph"], keys: target });
+      crate["@graph"] = await this.__updateCrateMetadata({
+        graph: crate["@graph"],
+        remove_keys: target
+      });
     } else if (prefix) {
       if (!isString(prefix)) {
         throw new Error(`prefix must be a string`);
       }
       await this.bucket.delete({ prefix: nodePath.join(this.itemPath, prefix) });
-      crate["@graph"] = updateCrateMetadata({ graph: crate["@graph"], prefix });
+      crate["@graph"] = await this.__updateCrateMetadata({
+        graph: crate["@graph"],
+        remove_prefix: prefix
+      });
     }
     await this.bucket.put({
       target: this.roCrateFile,
       json: crate
     });
-    function updateCrateMetadata({ graph, keys = [], prefix: prefix2 }) {
-      let rootDescriptor = graph.filter(
-        (e) => e["@id"] === "ro-crate-metadata.json" && e["@type"] === "CreativeWork"
-      )[0];
-      let rootDataset = graph.filter((e) => e["@id"] === rootDescriptor.about["@id"])[0];
-      if (!rootDataset) {
-        console.log(`${this.itemPath}/ro-crate-metadata.json DOES NOT have a root dataset`);
-        return;
-      }
-      if (!isArray(rootDataset.hasPart))
-        [rootDataset.hasPart];
-      if (keys.length) {
-        let hasPart = rootDataset.hasPart.filter((e) => {
-          return !keys.includes(e["@id"]);
-        });
-        rootDataset.hasPart = hasPart;
-        graph = graph.filter((e) => !keys.includes(e["@id"]));
-      } else if (prefix2) {
-        let re = new RegExp(prefix2);
-        let hasPart = rootDataset.hasPart.filter((e) => !e["@id"].match(re));
-        rootDataset.hasPart = hasPart;
-        graph = graph.filter((e) => !e["@id"].match(re));
-      }
-      graph = graph.map((e) => {
-        if (e["@id"] === rootDescriptor.about["@id"])
-          return rootDataset;
-        return e;
-      });
-      return graph;
-    }
   }
   async deleteItem() {
     if (!await this.itemExists()) {
@@ -752,6 +689,69 @@ class Store {
       target: this.inventoryFile,
       json: inventory
     });
+  }
+  async __updateCrateMetadata({
+    graph,
+    add_target = void 0,
+    remove_keys = [],
+    remove_prefix = "",
+    mimetype = void 0
+  }) {
+    let rootDescriptor = graph.filter(
+      (e) => e["@id"] === "ro-crate-metadata.json" && e["@type"] === "CreativeWork"
+    )[0];
+    let rootDataset = graph.filter((e) => e["@id"] === rootDescriptor.about["@id"])[0];
+    if (!rootDataset) {
+      console.log(`${this.itemPath}/ro-crate-metadata.json DOES NOT have a root dataset`);
+      return;
+    }
+    if (!rootDataset.hasPart)
+      rootDataset.hasPart = [];
+    if (!isArray(rootDataset.hasPart))
+      rootDataset.hasPart = [rootDataset.hasPart];
+    if (add_target && add_target !== "ro-crate-metadata.json") {
+      const target = add_target;
+      rootDataset.hasPart.push({ "@id": target });
+      rootDataset.hasPart = uniqBy(rootDataset.hasPart, "@id");
+      let fileEntry = graph.filter((e) => e["@id"] === target);
+      if (!fileEntry.length) {
+        let stat = await this.stat({ path: target });
+        if (!mimetype)
+          mimetype = mime.lookup(target);
+        let entity = {
+          "@id": target,
+          "@type": "File",
+          name: target,
+          contentSize: stat.ContentLength,
+          dateModified: stat.LastModified,
+          "@reverse": {
+            hasPart: [{ "@id": "./" }]
+          }
+        };
+        if (mimetype)
+          entity.encodingFormat = mimetype;
+        graph.push(entity);
+      }
+    } else if (remove_keys.length) {
+      let hasPart = rootDataset.hasPart.filter((e) => {
+        return !remove_keys.includes(e["@id"]);
+      });
+      rootDataset.hasPart = hasPart;
+      graph = graph.filter((e) => !remove_keys.includes(e["@id"]));
+    } else if (remove_prefix) {
+      let re = new RegExp(remove_prefix);
+      let hasPart = rootDataset.hasPart.filter((e) => !e["@id"].match(re));
+      rootDataset.hasPart = hasPart;
+      graph = graph.filter((e) => !e["@id"].match(re));
+    } else {
+      return graph;
+    }
+    graph = graph.map((e) => {
+      if (e["@id"] === rootDescriptor.about["@id"])
+        return rootDataset;
+      return e;
+    });
+    return graph;
   }
 }
 const sha512 = (path) => new Promise((resolve, reject) => {
