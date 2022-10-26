@@ -213,11 +213,11 @@ The class will walk the storage for you and emit an object you can use with the 
 attach to an object in the storage and operate on it.
 
 ```
-const walker = new Walker({ credentials: this.credentials, domain });
+const walker = new Walker({ credentials: this.credentials });
 walker.on("object", (object) => {
     let { domain, className, id, splay } = object;
 
     // do something with object
 })
-
+await walker.walk({})
 ```
