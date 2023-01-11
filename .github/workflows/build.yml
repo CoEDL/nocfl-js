@@ -1,4 +1,4 @@
-name: Build/release
+name: Build distributables and update docs
 
 on:
   push:
