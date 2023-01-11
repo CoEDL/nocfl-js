@@ -722,6 +722,22 @@ describe("Test storage actions", () => {
         await bucket.delete({ prefix: store.getItemPath() });
         await remove(path.join("/tmp", file));
     });
+    test("it should be able stream a file and calculate its checksum", async function () {
+        const file = "s3.js";
+        const store = new Store({ domain, className: "item", id: "test", credentials });
+
+        await store.createItem();
+        await store.put({ localPath: path.join(__dirname, file), target: file });
+
+        console.time();
+        let hash = await store.hashTarget({ target: file });
+        expect(hash).toEqual(
+            "60d4813bcf348ac4f591cd45f8038cb9274d89449083b3e596e1938372981ec3da5962ddc00e9fbfc222dd153d1fa944bebacd3365afeb1a4563cfbf45468de1"
+        );
+
+        await bucket.delete({ prefix: store.getItemPath() });
+        await remove(path.join("/tmp", file));
+    }, 25000);
 });
 
 function getFile({ resources, file }) {

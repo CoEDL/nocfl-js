@@ -205,6 +205,17 @@ export class Bucket {
         // }
     }
 
+    async stream({ target }) {
+        const command = new GetObjectCommand({
+            Bucket: this.bucket,
+            Key: target,
+        });
+        const item = await this.client.send(command);
+        if (item.Body) {
+            return item.Body;
+        }
+    }
+
     async get({ target, localPath }) {
         const downloadParams = { Bucket: this.bucket, Key: target };
         const command = new GetObjectCommand(downloadParams);

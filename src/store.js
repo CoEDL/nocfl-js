@@ -1,7 +1,4 @@
 import { Bucket } from "./s3.js";
-import fsExtra from "fs-extra";
-const { createReadStream } = fsExtra;
-import crypto from "crypto";
 import * as nodePath from "path";
 import hasha from "hasha";
 import { Indexer } from "./indexer.js";
@@ -355,12 +352,14 @@ export class Store {
                 );
             }
             if (localPath) {
-                let hash = await sha512(localPath);
-                await this.__updateInventory({ target, hash });
+                let hash = await hasha.fromFile(localPath, { algorithm: "sha512" });
+                await this.updateInventory({ target, hash });
             } else if (json) {
-                await this.__updateInventory({ target, hash: hasha(JSON.stringify(json)) });
+                let hash = hasha(JSON.stringify(json), { algorithm: "sha512" });
+                await this.updateInventory({ target, hash });
             } else {
-                await this.__updateInventory({ target, hash: hasha(content) });
+                let hash = hasha(content, { algorithm: "sha512" });
+                await this.updateInventory({ target, hash });
             }
             let s3Target = nodePath.join(this.itemPath, target);
             if (version) {
@@ -487,14 +486,29 @@ export class Store {
     }
 
     /**
+     * Calculate the SHA512 hash of a file in storage
+     * @param {Object} params
+     * @param {String} params.target - the file on the storage, relative to the item path, that is to be hashed
+     * @return the hash of the file or undefined
+     */
+    async hashTarget({ target }) {
+        target = nodePath.join(this.itemPath, target);
+
+        const stream = await this.bucket.stream({ target });
+        if (stream) {
+            let hash = await hasha.fromStream(stream, { algorithm: "sha512" });
+            return hash;
+        }
+    }
+
+    /**
      * Update the file inventory.
-     * @private
      * @param {Object} params
      * @param {String} params.target - the file on the storage, relative to the item path
      * @param {String} params.hash - the hash (checksum) of the file
      * @return a list of files
      */
-    async __updateInventory({ target, hash }) {
+    async updateInventory({ target, hash }) {
         let inventory = JSON.parse(await this.bucket.get({ target: this.inventoryFile }));
         inventory.content[target] = hash;
         await this.bucket.put({
@@ -583,12 +597,3 @@ export class Store {
         return graph;
     }
 }
-
-const sha512 = (path) =>
-    new Promise((resolve, reject) => {
-        const hash = crypto.createHash("sha512");
-        const rs = createReadStream(path);
-        rs.on("error", reject);
-        rs.on("data", (chunk) => hash.update(chunk));
-        rs.on("end", () => resolve(hash.digest("hex")));
-    });
