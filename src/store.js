@@ -364,26 +364,30 @@ export class Store {
             }
             let s3Target = nodePath.join(this.itemPath, target);
             if (version) {
-                const date = new Date().toISOString();
-                let versionFile = nodePath.join(
-                    this.itemPath,
-                    `${nodePath.basename(
-                        target,
-                        nodePath.extname(target)
-                    )}.v${date}${nodePath.extname(target)}`
-                );
-                try {
-                    await this.bucket.copy({ source: s3Target, target: versionFile });
-                } catch (error) {
-                    if (error.message === "The specified key does not exist.") {
-                        // no source file available - that's ok - ignore it - nothing to version yet
-                    } else {
-                        throw new Error(error.message);
-                    }
-                }
-                await this.bucket.put({ localPath, json, content, target: s3Target });
+                await this.version({ target: s3Target });
+            }
+            await this.bucket.put({ localPath, json, content, target: s3Target });
+        }
+    }
+
+    /**
+     * Version a file.
+     * @param {Object} params
+     * @param {String} params.target - the file on the storage, relative to the item path, that is to be versioned
+     */
+    async version({ target }) {
+        const source = target;
+        const date = new Date().toISOString();
+        const extension = nodePath.extname(source);
+        const basename = nodePath.basename(source, extension);
+        target = nodePath.join(this.itemPath, `${basename}.v${date}${extension}`);
+        try {
+            await this.bucket.copy({ source, target });
+        } catch (error) {
+            if (error.message === "The specified key does not exist.") {
+                // no source file available - that's ok - ignore it - nothing to version yet
             } else {
-                await this.bucket.put({ localPath, json, content, target: s3Target });
+                throw new Error(error.message);
             }
         }
     }
