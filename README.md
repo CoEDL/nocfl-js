@@ -8,7 +8,7 @@ An opinionated S3 storage library inspired by ocfl but simpler.
   - [Table of Contents](#table-of-contents)
 - [Repository and Documentation](#repository-and-documentation)
 - [Background](#background)
-- [Tests](#tests)
+- [Developing this library / tests](#developing-this-library--tests)
 - [About this library](#about-this-library)
   - [Research Object Crate Metadata](#research-object-crate-metadata)
   - [Index files](#index-files)
@@ -35,11 +35,13 @@ The name of this library came from [Peter Sefton](https://github.com/ptsefton).
 
 [Why not just use OCFL?](tutorial-why-not-ocfl.html)
 
-# Tests
+# Developing this library / tests
 
 This library has extensive tests. To run them: `npm run test:watch`. You will need docker as this
 command will start a local S3 service called [MinIO](https://hub.docker.com/r/minio/minio/).
 (`npm run develop` exists as a more semantically meaningful shortcut for test:watch)
+
+The minio credentials are `root`/`rootpass` and are defined in `docker-compose.yml`.
 
 # About this library
 
