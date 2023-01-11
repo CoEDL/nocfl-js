@@ -24,6 +24,8 @@ jobs:
       - name: Build the application
         run: npm run build
 
-      - uses: stefanzweifel/git-auto-commit-action@v4
+      - name: Auto commit build artefacts
+        uses: stefanzweifel/git-auto-commit-action@v4
         with:
+          branch: master
           commit_message: Update distributables and documentation
