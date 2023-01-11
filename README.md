@@ -49,6 +49,7 @@ The minio credentials are `root`/`rootpass` and are defined in `docker-compose.y
 -   Tag the release with `npm version {major|minor|patch}` as appropriate
 -   Push tags to master with `git push origin master --tags` which will trigger a github action to
     build the distributables and update the docs
+-   Publish the release to npm with `npm publish`
 
 # About this library
 
