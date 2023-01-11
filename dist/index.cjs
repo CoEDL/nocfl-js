@@ -6,7 +6,6 @@ const s3RequestPresigner = require('@aws-sdk/s3-request-presigner');
 const fsExtra = require('fs-extra');
 const lodashPkg = require('lodash');
 const nodePath = require('path');
-const crypto = require('crypto');
 const hasha = require('hasha');
 const EventEmitter = require('events');
 const mime = require('mime-types');
@@ -24,7 +23,7 @@ function _interopNamespaceDefault(e) {
 
 const nodePath__namespace = /*#__PURE__*/_interopNamespaceDefault(nodePath);
 
-const { createReadStream: createReadStream$1, createWriteStream, readdir, stat } = fsExtra;
+const { createReadStream, createWriteStream, readdir, stat } = fsExtra;
 const { isEmpty } = lodashPkg;
 const MB = 1024 * 1024;
 const maxFileNameLength = 1024;
@@ -91,7 +90,7 @@ class Bucket {
       Metadata: metadata
     };
     if (localPath !== void 0) {
-      const fileStream = createReadStream$1(localPath);
+      const fileStream = createReadStream(localPath);
       fileStream.on("error", function(err) {
         console.log("File Error", err);
       });
@@ -128,6 +127,16 @@ class Bucket {
       });
       const response2 = await uploader2.done();
       return response2.$metadata;
+    }
+  }
+  async stream({ target }) {
+    const command = new clientS3.GetObjectCommand({
+      Bucket: this.bucket,
+      Key: target
+    });
+    const item = await this.client.send(command);
+    if (item.Body) {
+      return item.Body;
     }
   }
   async get({ target, localPath }) {
@@ -380,7 +389,6 @@ class Indexer {
   }
 }
 
-const { createReadStream } = fsExtra;
 const { isString, isArray, chunk, uniqBy } = lodashPkg;
 const specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
 class Store {
@@ -593,33 +601,33 @@ class Store {
         );
       }
       if (localPath2) {
-        let hash = await sha512(localPath2);
-        await this.__updateInventory({ target: target2, hash });
+        let hash = await hasha.fromFile(localPath2, { algorithm: "sha512" });
+        await this.updateInventory({ target: target2, hash });
       } else if (json2) {
-        await this.__updateInventory({ target: target2, hash: hasha(JSON.stringify(json2)) });
+        let hash = hasha(JSON.stringify(json2), { algorithm: "sha512" });
+        await this.updateInventory({ target: target2, hash });
       } else {
-        await this.__updateInventory({ target: target2, hash: hasha(content2) });
+        let hash = hasha(content2, { algorithm: "sha512" });
+        await this.updateInventory({ target: target2, hash });
       }
       let s3Target = nodePath__namespace.join(this.itemPath, target2);
       if (version2) {
-        const date = new Date().toISOString();
-        let versionFile = nodePath__namespace.join(
-          this.itemPath,
-          `${nodePath__namespace.basename(
-            target2,
-            nodePath__namespace.extname(target2)
-          )}.v${date}${nodePath__namespace.extname(target2)}`
-        );
-        try {
-          await this.bucket.copy({ source: s3Target, target: versionFile });
-        } catch (error) {
-          if (error.message === "The specified key does not exist.") ; else {
-            throw new Error(error.message);
-          }
-        }
-        await this.bucket.put({ localPath: localPath2, json: json2, content: content2, target: s3Target });
-      } else {
-        await this.bucket.put({ localPath: localPath2, json: json2, content: content2, target: s3Target });
+        await this.version({ target: s3Target });
+      }
+      await this.bucket.put({ localPath: localPath2, json: json2, content: content2, target: s3Target });
+    }
+  }
+  async version({ target }) {
+    const source = target;
+    const date = new Date().toISOString();
+    const extension = nodePath__namespace.extname(source);
+    const basename = nodePath__namespace.basename(source, extension);
+    target = nodePath__namespace.join(this.itemPath, `${basename}.v${date}${extension}`);
+    try {
+      await this.bucket.copy({ source, target });
+    } catch (error) {
+      if (error.message === "The specified key does not exist.") ; else {
+        throw new Error(error.message);
       }
     }
   }
@@ -696,7 +704,15 @@ class Store {
       }
     }
   }
-  async __updateInventory({ target, hash }) {
+  async hashTarget({ target }) {
+    target = nodePath__namespace.join(this.itemPath, target);
+    const stream = await this.bucket.stream({ target });
+    if (stream) {
+      let hash = await hasha.fromStream(stream, { algorithm: "sha512" });
+      return hash;
+    }
+  }
+  async updateInventory({ target, hash }) {
     let inventory = JSON.parse(await this.bucket.get({ target: this.inventoryFile }));
     inventory.content[target] = hash;
     await this.bucket.put({
@@ -768,13 +784,6 @@ class Store {
     return graph;
   }
 }
-const sha512 = (path) => new Promise((resolve, reject) => {
-  const hash = crypto.createHash("sha512");
-  const rs = createReadStream(path);
-  rs.on("error", reject);
-  rs.on("data", (chunk2) => hash.update(chunk2));
-  rs.on("end", () => resolve(hash.digest("hex")));
-});
 
 exports.Indexer = Indexer;
 exports.Store = Store;
