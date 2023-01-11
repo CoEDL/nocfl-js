@@ -1,0 +1,29 @@
+name: Build/release
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v3
+
+      - name: Install Node.js, NPM and Yarn
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install node modules
+        run: npm install
+
+      - name: Build the application
+        run: npm run build
+
+      - uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: Update distributables and documentation
