@@ -9,6 +9,7 @@ An opinionated S3 storage library inspired by ocfl but simpler.
 - [Repository and Documentation](#repository-and-documentation)
 - [Background](#background)
 - [Developing this library / tests](#developing-this-library--tests)
+- [Releasing an update](#releasing-an-update)
 - [About this library](#about-this-library)
   - [Research Object Crate Metadata](#research-object-crate-metadata)
   - [Index files](#index-files)
@@ -42,6 +43,12 @@ command will start a local S3 service called [MinIO](https://hub.docker.com/r/mi
 (`npm run develop` exists as a more semantically meaningful shortcut for test:watch)
 
 The minio credentials are `root`/`rootpass` and are defined in `docker-compose.yml`.
+
+# Releasing an update
+
+-   Tag the release with `npm version {major|minor|patch}` as appropriate
+-   Push tags to master with `git push origin master --tags` which will trigger a github action to
+    build the distributables and update the docs
 
 # About this library
 
