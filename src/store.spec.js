@@ -101,7 +101,7 @@ describe("Test storage actions", () => {
         await bucket.delete({ prefix: path.join("item", "t", "test") });
         const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createObject();
-        let inventory = await store.getItemInventory();
+        let inventory = await store.getObjectInventory();
         expect(inventory.content["ro-crate-metadata.json"]).toBeDefined;
         await bucket.delete({ prefix: store.getObjectPath() });
     });
@@ -271,26 +271,27 @@ describe("Test storage actions", () => {
         await bucket.delete({ prefix: store.getObjectPath() });
     });
     test("it should be able to upload a file and version it", async () => {
-        const file = "s3.js";
+        const file = "file.json";
         const store = new Store({ prefix: domain, type: "item", id: "test", credentials });
         await store.createObject();
 
-        await store.put({ localPath: path.join(__dirname, file), target: file, version: true });
+        await store.put({ json: { version: 1 }, target: file, version: true });
         let resources = await store.listResources();
         expect(resources.length).toEqual(4);
 
-        await store.put({ json: {}, target: file, version: true });
+        await store.put({ json: { version: 2 }, target: file, version: true });
         resources = await store.listResources();
-        expect(resources.filter((r) => r.Key.match(/^s3/)).length).toEqual(2);
+        expect(resources.filter((r) => r.Key.match(/^file.*/)).length).toEqual(2);
         expect(resources.length).toEqual(5);
 
-        await store.put({ localPath: path.join(__dirname, file), target: file, version: true });
+        await store.put({ json: { version: 3 }, target: file, version: true });
+        resources = await store.listResources();
 
         let versions = await store.listFileVersions({ target: file });
         expect(versions.length).toEqual(3);
-        expect(versions[0]).toEqual(`${domain}/item/t/test/s3.js`);
-        expect(versions[1]).toMatch(/.*\/s3.v.*\.js/);
-        expect(versions[2]).toMatch(/.*\/s3.v.*\.js/);
+        expect(versions[0]).toEqual(`file.json`);
+        expect(versions[1]).toMatch(/file\.v.*\.json/);
+        expect(versions[2]).toMatch(/file\.v.*\.json/);
 
         await bucket.delete({ prefix: store.getObjectPath() });
         await remove(path.join("/tmp", file));
@@ -749,7 +750,89 @@ describe("Test storage actions", () => {
 
         await bucket.delete({ prefix: store.getObjectPath() });
         await remove(path.join("/tmp", file));
-    }, 25000);
+    });
+    test("it should be able to copy in a file from another location in the bucket and not version it", async () => {
+        const file = "file.json";
+        const source = new Store({
+            prefix: `${domain}/workspace`,
+            type: "item",
+            id: "test",
+            credentials,
+        });
+        await source.createObject();
+
+        const target = new Store({
+            prefix: `${domain}/repository`,
+            type: "item",
+            id: "test",
+            credentials,
+        });
+        await target.createObject();
+
+        // put a file into the source
+        await source.put({ json: { version: 1 }, target: file });
+
+        // copy it into the target
+        const filePath = source.resolvePath({ path: file });
+        await target.copy({ source: filePath, target: "file.json" });
+
+        // check that the inventory is correct
+        let sourceInventory = await source.getObjectInventory();
+        let targetInventory = await target.getObjectInventory();
+        expect(sourceInventory.content[file]).toEqual(targetInventory.content[file]);
+
+        // copy again and check the inventory hasn't changed
+        await target.copy({ source: filePath, target: "file.json", version: true });
+        let inventory = await target.getObjectInventory();
+        expect(inventory.content[file]).toEqual(targetInventory.content[file]);
+
+        await bucket.delete({ prefix: source.getObjectPath() });
+        await bucket.delete({ prefix: target.getObjectPath() });
+    });
+    test("it should be able to copy in a file from another location in the bucket and version it", async () => {
+        const file = "file.json";
+        const source = new Store({
+            prefix: `${domain}/workspace`,
+            type: "item",
+            id: "test",
+            credentials,
+        });
+        await source.createObject();
+
+        const target = new Store({
+            prefix: `${domain}/repository`,
+            type: "item",
+            id: "test",
+            credentials,
+        });
+        await target.createObject();
+
+        // put a file into the source
+        await source.put({ json: { version: 1 }, target: file });
+
+        // copy it to the target
+        const filePath = source.resolvePath({ path: file });
+        await target.copy({ source: filePath, target: "file.json" });
+
+        let sourceInventory = await source.getObjectInventory();
+        let targetInventory = await target.getObjectInventory();
+        expect(sourceInventory.content[file]).toEqual(targetInventory.content[file]);
+        expect(Object.keys(targetInventory.content).length).toEqual(2);
+
+        // change the source file but don't version it
+        await source.put({ json: { version: 2 }, target: file });
+
+        // copy it to the target
+        await target.copy({ source: filePath, target: "file.json", version: true });
+
+        sourceInventory = await source.getObjectInventory();
+        targetInventory = await target.getObjectInventory();
+        expect(sourceInventory.content[file]).toEqual(targetInventory.content[file]);
+        expect(Object.keys(targetInventory.content).length).toEqual(3);
+
+        await bucket.delete({ prefix: source.getObjectPath() });
+        await bucket.delete({ prefix: target.getObjectPath() });
+    });
 });
 
 function getFile({ resources, file }) {

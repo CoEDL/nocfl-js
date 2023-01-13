@@ -401,7 +401,8 @@ export class Store {
             prefix: nodePath.join(this.objectPath, target),
         });
         let versions = files.Contents.map((c) => c.Key).sort();
-        return [...versions.slice(1), versions[0]].reverse();
+        versions = [...versions.slice(1), versions[0]].reverse();
+        return versions.map((v) => v.replace(`${this.getObjectPath()}/`, ""));
     }
 
     /**
@@ -449,15 +450,15 @@ export class Store {
             return;
         }
 
-        transfer = transfer.bind(this);
+        putFile = putFile.bind(this);
         if (batch.length) {
             let chunks = chunk(batch, 5);
             for (let chunk of chunks) {
-                let transfers = chunk.map((t) => transfer(t));
+                let transfers = chunk.map((params) => putFile(params));
                 await Promise.all(transfers);
             }
         } else {
-            await transfer({ localPath, json, content, target, registerFile, version });
+            await putFile({ localPath, json, content, target, registerFile, version });
         }
 
         // get the crate file
@@ -491,35 +492,35 @@ export class Store {
             json: crate,
         });
 
-        async function transfer({ localPath, json, content, target, version }) {
+        async function putFile({ localPath, json, content, target, version }) {
             if (specialFiles.includes(target)) {
                 throw new Error(
                     `You can't upload a file called '${target} as that's a special file used by the system`
                 );
             }
-            let hash;
+            let newContentHash;
             if (localPath) {
-                hash = await hasha.fromFile(localPath, { algorithm: "sha512" });
+                newContentHash = await hasha.fromFile(localPath, { algorithm: "sha512" });
             } else if (json) {
-                hash = hasha(JSON.stringify(json), { algorithm: "sha512" });
+                newContentHash = hasha(JSON.stringify(json), { algorithm: "sha512" });
             } else {
-                hash = hasha(content, { algorithm: "sha512" });
+                newContentHash = hasha(content, { algorithm: "sha512" });
             }
-            let s3Target = nodePath.join(this.objectPath, target);
 
-            if (version) {
-                if (await this.fileExists({ path: target })) {
-                    let oldHash = await this.hashTarget({ target });
-                    if (oldHash !== hash) {
-                        await this.version({ target: s3Target });
-                    }
-                } else {
-                    await this.version({ target: s3Target });
+            if (version && (await this.fileExists({ path: target }))) {
+                let currentContentHash = await this.hashTarget({ target });
+                if (currentContentHash !== newContentHash) {
+                    await this.version({ target, hash: currentContentHash });
                 }
             }
             try {
-                await this.bucket.put({ localPath, json, content, target: s3Target });
-                await this.updateInventory({ target, hash });
+                await this.bucket.put({
+                    localPath,
+                    json,
+                    content,
+                    target: nodePath.join(this.getObjectPath(), target),
+                });
+                await this.updateInventory({ target, hash: newContentHash });
             } catch (error) {
                 console.log(error);
             }
@@ -527,24 +528,90 @@ export class Store {
     }
 
     /**
+     * Copy a file into the item from another part of the storage. This capability is specifically to support using
+     *  different locations in the bucket for working data and repository data where the repository data might contain versioned
+     *  copies of the working data.
+     * @param {Object} params
+     * @param {String} params.source - the source file to be copied - this must be a full path to the file inside the bucket
+     * @param {String} params.target - the target location to copy the source file to; this is relative to the object path
+     * @param {Boolean} params.version=false - whether the file should be versioned. If true, the existing file will be copied
+     *  to ${file}.v${date as ISO String}.{ext} before the new version is uploaded to the target name
+     * @param {Transfer[]} params.batch - an array of objects defining content to put into the store where the params
+     *  are as for the single case. Uploads will be run 5 at a time.
+     */
+    async copy({
+        source = undefined,
+        bucket = undefined,
+        target = undefined,
+        version = false,
+        batch = [],
+    }) {
+        if (!(await this.exists())) {
+            throw new Error(`The item doesn't exist`);
+        }
+
+        if (!batch.length && !target) {
+            // nothing to do
+            return;
+        }
+
+        copyFile = copyFile.bind(this);
+        if (batch.length) {
+            let chunks = chunk(batch, 5);
+            for (let chunk of chunks) {
+                let transfers = chunk.map((params) => copyFile(params));
+                await Promise.all(transfers);
+            }
+        } else {
+            await copyFile({ source, bucket, target, registerFile, version });
+        }
+
+        async function copyFile({ source, target, version }) {
+            if (specialFiles.includes(target)) {
+                throw new Error(
+                    `You can't upload a file called '${target} as that's a special file used by the system`
+                );
+            }
+            let sourceHash = await this.hashTarget({ target: source, relative: false });
+            if (version && (await this.fileExists({ path: target }))) {
+                let targetHash = await this.hashTarget({ target });
+                if (sourceHash !== targetHash) {
+                    await this.version({ target, hash: targetHash });
+                }
+            }
+            try {
+                await this.bucket.copy({ source, target: `${this.getObjectPath()}/${target}` });
+                await this.updateInventory({ target, hash: sourceHash });
+            } catch (error) {
+                console.log(error);
+            }
+        }
+    }
+
+    // TODO method to add all files to the crate
+    //   TODO it should not overwrite any files that were added by the user
+    //  deprecate registerfile from put
+    async registerFilesInCrateMetadata() {}
+
+    /**
      * Version a file.
      * @param {Object} params
      * @param {String} params.target - the file on the storage, relative to the item path, that is to be versioned
      */
-    async version({ target }) {
-        const source = target;
+    async version({ target, hash }) {
+        // can't version a target that isn't there
+        if (!(await this.fileExists({ path: target }))) return;
+
+        const source = nodePath.join(this.objectPath, target);
         const date = new Date().toISOString();
         const extension = nodePath.extname(source);
         const basename = nodePath.basename(source, extension);
-        target = nodePath.join(this.objectPath, `${basename}.v${date}${extension}`);
+        target = `${basename}.v${date}${extension}`;
         try {
-            await this.bucket.copy({ source, target });
+            await this.bucket.copy({ source, target: nodePath.join(this.objectPath, target) });
+            await this.updateInventory({ target, hash });
         } catch (error) {
-            if (error.message === "The specified key does not exist.") {
-                // no source file available - that's ok - ignore it - nothing to version yet
-            } else {
-                throw new Error(error.message);
-            }
+            throw new Error(error.message);
         }
     }
 
@@ -661,6 +728,7 @@ export class Store {
     /**
      * Resolve the full path of a file in the storage
      * @since 1.17.0
+     * @param {String} params.path - the path to the file relative to the object root that it to be resolved
      * @return the full path to a file
      */
     resolvePath({ path }) {
@@ -673,8 +741,8 @@ export class Store {
      * @param {String} params.target - the file on the storage, relative to the item path, that is to be hashed
      * @return the hash of the file or undefined
      */
-    async hashTarget({ target }) {
-        target = nodePath.join(this.objectPath, target);
+    async hashTarget({ target, relative = true }) {
+        if (relative) target = nodePath.join(this.objectPath, target);
 
         const stream = await this.bucket.stream({ target });
         if (stream) {
