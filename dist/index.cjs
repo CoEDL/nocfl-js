@@ -271,16 +271,17 @@ class Walker extends EventEmitter {
     this.credentials = credentials;
     this.bucket = new Bucket(credentials);
   }
-  async walk({ domain = void 0 }) {
+  async walk({ domain = void 0, prefix = void 0 }) {
     const walker = __walker.bind(this);
-    await walker({ domain });
+    await walker({});
     async function __walker({ continuationToken }) {
+      prefix = prefix ? prefix : domain;
       let objects = await this.bucket.listObjects({ continuationToken });
       for (let entry of objects.Contents) {
         let match = false;
-        if (domain && entry.Key.match(`${domain}/`) && entry.Key.match(this.identifierFile)) {
+        if (prefix && entry.Key.match(`${prefix}/`) && entry.Key.match(this.identifierFile)) {
           match = true;
-        } else if (!domain && entry.Key.match(this.identifierFile)) {
+        } else if (!prefix && entry.Key.match(this.identifierFile)) {
           match = true;
         }
         if (match) {
@@ -314,91 +315,100 @@ class Indexer {
     this.credentials = credentials;
     this.bucket = new Bucket(credentials);
   }
-  async createIndices({ domain = void 0 }) {
-    const walker = new Walker({ credentials: this.credentials, domain });
+  async createIndices({ domain = null, prefix = null }) {
+    prefix = prefix ?? domain;
+    const walker = new Walker({ credentials: this.credentials, prefix });
     let indices = {};
     walker.on("object", (object) => {
-      let { domain: domain2, className, id, splay } = object;
+      let { prefix: prefix2, type, id, splay } = object;
       let idPrefix = id.slice(0, 1).toLowerCase();
-      if (!indices[domain2])
-        indices[domain2] = {};
-      if (!indices[domain2][className])
-        indices[domain2][className] = {};
-      if (!indices[domain2][className][idPrefix])
-        indices[domain2][className][idPrefix] = [];
-      indices[domain2][className][idPrefix].push({ domain: domain2, className, id, splay });
+      if (!indices[prefix2])
+        indices[prefix2] = {};
+      if (!indices[prefix2][type])
+        indices[prefix2][type] = {};
+      if (!indices[prefix2][type][idPrefix])
+        indices[prefix2][type][idPrefix] = [];
+      indices[prefix2][type][idPrefix].push({ prefix: prefix2, type, id, splay });
     });
     await walker.walk({ domain });
     let indexFiles = [];
-    for (let domain2 of Object.keys(indices)) {
-      for (let className of Object.keys(indices[domain2])) {
-        for (let idPrefix of Object.keys(indices[domain2][className])) {
-          let indexFile = `${domain2}/indices/${className}/${idPrefix}.json`;
+    for (let prefix2 of Object.keys(indices)) {
+      for (let type of Object.keys(indices[prefix2])) {
+        for (let idPrefix of Object.keys(indices[prefix2][type])) {
+          let indexFile = `${prefix2}/indices/${type}/${idPrefix}.json`;
           indexFiles.push(indexFile);
           await this.bucket.put({
             target: indexFile,
-            json: orderBy(indices[domain2][className][idPrefix], "id")
+            json: orderBy(indices[prefix2][type][idPrefix], "id")
           });
         }
       }
     }
     return indexFiles;
   }
-  async patchIndex({ action, domain, className, id, splay = 1 }) {
+  async patchIndex({ action, domain = null, prefix = null, type, className, id, splay = 1 }) {
     if (!["PUT", "DELETE"].includes(action)) {
       throw new Error(`'action' must be one of 'PUT' or 'DELETE'`);
     }
-    let indexFileName = `${domain}/indices/${className}/${id.slice(0, 1).toLowerCase()}.json`;
+    prefix = prefix ?? domain;
+    type = type ?? className;
+    let indexFileName = `${prefix}/indices/${type}/${id.slice(0, 1).toLowerCase()}.json`;
     let indexFile = [];
     try {
       indexFile = await this.bucket.readJSON({ target: indexFileName });
     } catch (error) {
     }
     if (action === "PUT") {
-      indexFile.push({ domain, className, id, splay });
+      indexFile.push({ prefix, type, id, splay });
     } else if (action === "DELETE") {
       indexFile = indexFile.filter((i) => i.id !== id);
     }
     indexFile = uniqBy$1(indexFile, "id");
     await this.bucket.put({ target: indexFileName, json: indexFile });
   }
-  async listIndices({ domain, className }) {
-    if (!domain)
-      throw new Error(`You must provide 'domain'`);
-    let prefix = `${domain}/indices`;
-    if (className)
-      prefix = `${prefix}/${className}`;
+  async listIndices({ prefix = null, domain = null, type = null, className = null }) {
+    if (!prefix)
+      throw new Error(`You must provide 'prefix'`);
+    prefix = prefix ?? domain;
+    prefix = `${prefix}/indices`;
+    type = type ?? className;
+    if (type)
+      prefix = `${prefix}/${type}`;
     let files = (await this.bucket.listObjects({ prefix })).Contents;
     files = files.map((f) => f.Key);
     return files;
   }
-  async getIndex({ domain, className, prefix, file }) {
-    if (!domain)
-      throw new Error(`You must provide 'domain'`);
-    if (!className)
-      throw new Error(`You must provide 'className'`);
-    if (!prefix && !file)
-      throw new Error(`You must provide one of 'prefix' or 'file'`);
+  async getIndex({ prefix, type, file }) {
+    if (!prefix)
+      throw new Error(`You must provide 'prefix'`);
+    if (!type)
+      throw new Error(`You must provide 'type'`);
+    if (!file)
+      throw new Error(`You must provide 'file'`);
     let indexFile;
-    if (file) {
-      indexFile = `${domain}/indices/${className}/${file}`;
-    } else if (prefix) {
-      indexFile = `${domain}/indices/${className}/${prefix}.json`;
-    }
+    indexFile = `${prefix}/indices/${type}/${file}`;
     return await this.bucket.readJSON({ target: indexFile });
   }
 }
 
-const { isString, isArray, chunk, uniqBy } = lodashPkg;
+const { isUndefined, isString, isArray, chunk, uniqBy } = lodashPkg;
 const specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
 class Store {
-  constructor({ domain = void 0, className, id, credentials, splay = 1 }) {
+  constructor({
+    domain = void 0,
+    prefix = void 0,
+    className,
+    type,
+    id,
+    credentials,
+    splay = 1
+  }) {
     if (!id)
       throw new Error(`Missing required property: 'id'`);
-    if (!domain)
-      throw new Error(`Missing required property: 'domain'`);
-    if (!className)
-      throw new Error(`Missing required property: 'className'`);
+    if (!domain && !prefix)
+      throw new Error(`Missing required property: 'domain' || 'prefix'`);
+    if (!className && !type)
+      throw new Error(`Missing required property: 'className' || 'type'`);
     if (!credentials)
       throw new Error(`Missing required property: 'credentials'`);
     const requiredProperties = ["bucket", "accessKeyId", "secretAccessKey", "region"];
@@ -410,35 +420,49 @@ class Store {
     if (!isString(id)) {
       throw new Error(`The 'id' must be a string`);
     }
-    if (!isString(className)) {
+    if (!isUndefined && !isString(className)) {
       throw new Error(`The 'className' must be a string`);
     }
-    if (!isString(domain)) {
+    if (!isUndefined && !isString(type)) {
+      throw new Error(`The 'type' must be a string`);
+    }
+    if (!isUndefined && !isString(domain)) {
       throw new Error(`The 'domain' must be a string`);
+    }
+    if (!isUndefined && !isString(prefix)) {
+      throw new Error(`The 'prefix' must be a string`);
     }
     if (!id.match(/^[a-z,A-Z][a-z,A-Z,0-9,_]+$/)) {
       throw new Error(
         `The identifier doesn't match the allowed format: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$`
       );
     }
-    if (!className.match(/^[a-z,A-Z][a-z,A-Z,0-9,_]+$/)) {
+    if (!isUndefined && !className.match(/^[a-z,A-Z][a-z,A-Z,0-9,_]+$/)) {
       throw new Error(
-        `The className doesn't match the allowed format: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$`
+        `The 'className' doesn't match the allowed format: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$`
+      );
+    }
+    if (!isUndefined && !type.match(/^[a-z,A-Z][a-z,A-Z,0-9,_]+$/)) {
+      throw new Error(
+        `The 'type' doesn't match the allowed format: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$`
       );
     }
     this.credentials = credentials;
     this.bucket = new Bucket(credentials);
     this.id = id;
-    this.className = className;
-    this.domain = domain;
-    this.itemPath = `${domain.toLowerCase()}/${className.toLowerCase()}/${id.slice(
+    this.type = type ? type : className;
+    this.prefix = prefix ? prefix : domain;
+    this.objectPath = `${this.prefix.toLowerCase()}/${this.type.toLowerCase()}/${id.slice(
       0,
       splay
     )}/${id}`;
+    this.domain = this.prefix;
+    this.itemPath = this.objectPath;
+    this.className = this.type;
     this.splay = splay;
-    this.roCrateFile = nodePath__namespace.join(this.itemPath, "ro-crate-metadata.json");
-    this.inventoryFile = nodePath__namespace.join(this.itemPath, "nocfl.inventory.json");
-    this.identifierFile = nodePath__namespace.join(this.itemPath, "nocfl.identifier.json");
+    this.roCrateFile = nodePath__namespace.join(this.objectPath, "ro-crate-metadata.json");
+    this.inventoryFile = nodePath__namespace.join(this.objectPath, "nocfl.inventory.json");
+    this.identifierFile = nodePath__namespace.join(this.objectPath, "nocfl.identifier.json");
     this.roCrateSkeleton = {
       "@context": [
         "https://w3id.org/ro/crate/1.1/context",
@@ -479,21 +503,40 @@ class Store {
     }
     return false;
   }
-  getItemPath() {
-    return this.itemPath;
-  }
-  async getItemIdentifier() {
-    return await this.getJSON({ target: "nocfl.identifier.json" });
-  }
-  async getItemInventory() {
-    return await this.getJSON({ target: "nocfl.inventory.json" });
+  async exists() {
+    if (await this.bucket.pathExists({ path: this.identifierFile })) {
+      return true;
+    }
+    return false;
   }
   async pathExists({ path }) {
     let target = nodePath__namespace.join(this.itemPath, path);
     return await this.bucket.pathExists({ path: target });
   }
+  async fileExists({ path }) {
+    let target = nodePath__namespace.join(this.objectPath, path);
+    return await this.bucket.pathExists({ path: target });
+  }
+  getItemPath() {
+    return this.objectPath;
+  }
+  getObjectPath() {
+    return this.objectPath;
+  }
+  async getItemIdentifier() {
+    return await this.getJSON({ target: "nocfl.identifier.json" });
+  }
+  async getObjectIdentifier() {
+    return await this.getJSON({ target: "nocfl.identifier.json" });
+  }
+  async getItemInventory() {
+    return await this.getJSON({ target: "nocfl.inventory.json" });
+  }
+  async getObjectInventory() {
+    return await this.getJSON({ target: "nocfl.inventory.json" });
+  }
   async stat({ path }) {
-    let target = nodePath__namespace.join(this.itemPath, path);
+    let target = nodePath__namespace.join(this.objectPath, path);
     return await this.bucket.stat({ path: target });
   }
   async createItem() {
@@ -527,21 +570,54 @@ class Store {
       splay: this.splay
     });
   }
-  async get({ localPath, target }) {
-    target = nodePath__namespace.join(this.itemPath, target);
-    return await this.bucket.get({ target, localPath });
+  async createObject() {
+    if (await this.exists()) {
+      throw new Error(`An item with that identifier already exists`);
+    }
+    let roCrateFileHash = hasha(JSON.stringify(this.roCrateSkeleton));
+    await this.bucket.put({
+      target: this.roCrateFile,
+      json: this.roCrateSkeleton
+    });
+    await this.bucket.put({
+      target: this.inventoryFile,
+      json: { content: { "ro-crate-metadata.json": roCrateFileHash } }
+    });
+    await this.bucket.put({
+      target: this.identifierFile,
+      json: {
+        id: this.id,
+        type: this.type,
+        prefix: this.prefix,
+        objectPath: this.objectPath,
+        splay: this.splay
+      }
+    });
+    await this.indexer.patchIndex({
+      action: "PUT",
+      prefix: this.prefix,
+      type: this.type,
+      id: this.id,
+      splay: this.splay
+    });
   }
-  async listFileVersions({ target }) {
-    target = nodePath__namespace.basename(target, nodePath__namespace.extname(target));
-    let files = await this.bucket.listObjects({ prefix: nodePath__namespace.join(this.itemPath, target) });
-    let versions = files.Contents.map((c) => c.Key).sort();
-    return [...versions.slice(1), versions[0]].reverse();
+  async get({ localPath, target }) {
+    target = nodePath__namespace.join(this.objectPath, target);
+    return await this.bucket.get({ target, localPath });
   }
   async getJSON({ localPath, target }) {
     return JSON.parse(await this.get({ localPath, target }));
   }
+  async listFileVersions({ target }) {
+    target = nodePath__namespace.basename(target, nodePath__namespace.extname(target));
+    let files = await this.bucket.listObjects({
+      prefix: nodePath__namespace.join(this.objectPath, target)
+    });
+    let versions = files.Contents.map((c) => c.Key).sort();
+    return [...versions.slice(1), versions[0]].reverse();
+  }
   async getPresignedUrl({ target, download }) {
-    target = nodePath__namespace.join(this.itemPath, target);
+    target = nodePath__namespace.join(this.objectPath, target);
     return await this.bucket.getPresignedUrl({ target, download });
   }
   async put({
@@ -554,7 +630,7 @@ class Store {
     mimetype = void 0,
     batch = []
   }) {
-    if (!await this.itemExists()) {
+    if (!await this.exists()) {
       throw new Error(`The item doesn't exist`);
     }
     if (!batch.length && !target) {
@@ -600,21 +676,31 @@ class Store {
           `You can't upload a file called '${target2} as that's a special file used by the system`
         );
       }
+      let hash;
       if (localPath2) {
-        let hash = await hasha.fromFile(localPath2, { algorithm: "sha512" });
-        await this.updateInventory({ target: target2, hash });
+        hash = await hasha.fromFile(localPath2, { algorithm: "sha512" });
       } else if (json2) {
-        let hash = hasha(JSON.stringify(json2), { algorithm: "sha512" });
-        await this.updateInventory({ target: target2, hash });
+        hash = hasha(JSON.stringify(json2), { algorithm: "sha512" });
       } else {
-        let hash = hasha(content2, { algorithm: "sha512" });
-        await this.updateInventory({ target: target2, hash });
+        hash = hasha(content2, { algorithm: "sha512" });
       }
-      let s3Target = nodePath__namespace.join(this.itemPath, target2);
+      let s3Target = nodePath__namespace.join(this.objectPath, target2);
       if (version2) {
-        await this.version({ target: s3Target });
+        if (await this.fileExists({ path: target2 })) {
+          let oldHash = await this.hashTarget({ target: target2 });
+          if (oldHash !== hash) {
+            await this.version({ target: s3Target });
+          }
+        } else {
+          await this.version({ target: s3Target });
+        }
       }
-      await this.bucket.put({ localPath: localPath2, json: json2, content: content2, target: s3Target });
+      try {
+        await this.bucket.put({ localPath: localPath2, json: json2, content: content2, target: s3Target });
+        await this.updateInventory({ target: target2, hash });
+      } catch (error) {
+        console.log(error);
+      }
     }
   }
   async version({ target }) {
@@ -622,7 +708,7 @@ class Store {
     const date = new Date().toISOString();
     const extension = nodePath__namespace.extname(source);
     const basename = nodePath__namespace.basename(source, extension);
-    target = nodePath__namespace.join(this.itemPath, `${basename}.v${date}${extension}`);
+    target = nodePath__namespace.join(this.objectPath, `${basename}.v${date}${extension}`);
     try {
       await this.bucket.copy({ source, target });
     } catch (error) {
@@ -637,9 +723,6 @@ class Store {
         `You can't delete a file called '${target} as that's a special file used by the system`
       );
     }
-    if (!await this.itemExists()) {
-      throw new Error(`The item doesn't exist`);
-    }
     let crate = await this.getJSON({ target: "ro-crate-metadata.json" });
     if (target) {
       if (!isString(target) && !isArray(target)) {
@@ -647,7 +730,7 @@ class Store {
       }
       if (isString(target))
         target = [target];
-      let keys = target.map((t) => nodePath__namespace.join(this.itemPath, t));
+      let keys = target.map((t) => nodePath__namespace.join(this.objectPath, t));
       await this.bucket.delete({ keys });
       crate["@graph"] = await this.__updateCrateMetadata({
         graph: crate["@graph"],
@@ -657,7 +740,7 @@ class Store {
       if (!isString(prefix)) {
         throw new Error(`prefix must be a string`);
       }
-      await this.bucket.delete({ prefix: nodePath__namespace.join(this.itemPath, prefix) });
+      await this.bucket.delete({ prefix: nodePath__namespace.join(this.objectPath, prefix) });
       crate["@graph"] = await this.__updateCrateMetadata({
         graph: crate["@graph"],
         remove_prefix: prefix
@@ -681,17 +764,27 @@ class Store {
       splay: this.splay
     });
   }
+  async removeObject() {
+    await this.bucket.delete({ prefix: `${this.objectPath}/` });
+    await this.indexer.patchIndex({
+      action: "DELETE",
+      prefix: this.prefix,
+      type: this.type,
+      id: this.id,
+      splay: this.splay
+    });
+  }
   async listResources() {
     listItemResources = listItemResources.bind(this);
     let resources = await listItemResources({});
     resources = resources.map((r) => {
-      r.Key = r.Key.replace(`${this.itemPath}/`, "");
+      r.Key = r.Key.replace(`${this.objectPath}/`, "");
       return r;
     });
     return resources;
     async function listItemResources({ continuationToken }) {
       let resources2 = await this.bucket.listObjects({
-        prefix: `${this.itemPath}/`,
+        prefix: `${this.objectPath}/`,
         continuationToken
       });
       if (resources2.NextContinuationToken) {
@@ -704,8 +797,11 @@ class Store {
       }
     }
   }
+  resolvePath({ path }) {
+    return `${this.objectPath}/${path}`;
+  }
   async hashTarget({ target }) {
-    target = nodePath__namespace.join(this.itemPath, target);
+    target = nodePath__namespace.join(this.objectPath, target);
     const stream = await this.bucket.stream({ target });
     if (stream) {
       let hash = await hasha.fromStream(stream, { algorithm: "sha512" });
@@ -732,7 +828,7 @@ class Store {
     )[0];
     let rootDataset = graph.filter((e) => e["@id"] === rootDescriptor.about["@id"])[0];
     if (!rootDataset) {
-      console.log(`${this.itemPath}/ro-crate-metadata.json DOES NOT have a root dataset`);
+      console.log(`${this.objectPath}/ro-crate-metadata.json DOES NOT have a root dataset`);
       return;
     }
     if (!rootDataset.hasPart)
