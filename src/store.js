@@ -24,12 +24,12 @@ const specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
 /**
  * An AWS Credentials Object
  * @typedef {Object} Credentials
- * @property{string} bucket - the AWS bucket to connect to
- * @property {string} accessKeyId - the AWS accessKey
- * @property {string} secretAccessKey - the AWS secretAccessKey
- * @property {string} region - the AWS region
- * @property {string} [endpoint] - the endpoint URL when using an S3 like service (e.g. Minio)
- * @property {boolean} [forcePathStyle] - whether to force path style endpoints (required for Minio and the like)
+ * @property {String} bucket - the AWS bucket to connect to
+ * @property {String} accessKeyId - the AWS accessKey
+ * @property {String} secretAccessKey - the AWS secretAccessKey
+ * @property {String} region - the AWS region
+ * @property {String} [endpoint] - the endpoint URL when using an S3 like service (e.g. Minio)
+ * @property {Boolean} [forcePathStyle] - whether to force path style endpoints (required for Minio and the like)
  */
 
 /** Class representing an S3 store. */
