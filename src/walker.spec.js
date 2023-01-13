@@ -21,7 +21,7 @@ describe(`Test walking the repository - 1 domain`, () => {
     const domain = chance.domain();
     beforeAll(async () => {
         await setupTestData({
-            domain,
+            prefix: domain,
             credentials,
         });
     });
@@ -50,7 +50,7 @@ describe(`Test walking the repository - 3 domains`, () => {
     beforeAll(async () => {
         for (let domain of domains) {
             await setupTestData({
-                domain,
+                prefix: domain,
                 credentials,
             });
         }
@@ -85,16 +85,16 @@ describe(`Test walking the repository - 3 domains`, () => {
     });
 });
 
-async function setupTestData({ domain, credentials, count = 3 }) {
+async function setupTestData({ prefix, credentials, count = 3 }) {
     for (let type of ["collection", "item"]) {
         for (let i in range(count)) {
             const store = new Store({
-                domain,
-                className: type,
+                prefix,
+                type,
                 id: chance.word(),
                 credentials,
             });
-            await store.createItem();
+            await store.createObject();
         }
     }
 }

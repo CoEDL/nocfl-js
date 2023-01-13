@@ -1,7 +1,5 @@
 import { Bucket } from "./s3.js";
-import { Store } from "./store.js";
 import EventEmitter from "events";
-import { orderBy } from "lodash";
 
 /** Class representing an S3 walker. */
 export class Walker extends EventEmitter {
@@ -34,23 +32,25 @@ export class Walker extends EventEmitter {
      * Walk the repository and emit when an object is located. The object data
      *   to set up a store connection to it is emitted.
      * @param {Object} params
-     * @param {string} [params.domain] - Walk only the defined domain
+     * @param {string} [params.prefix] - Walk only the defined prefix. This can be any path from the root of the bucket.
      */
-    async walk({ domain = undefined }) {
+
+    async walk({ domain = undefined, prefix = undefined }) {
         const walker = __walker.bind(this);
-        await walker({ domain });
+        await walker({});
 
         async function __walker({ continuationToken }) {
+            prefix = prefix ? prefix : domain;
             let objects = await this.bucket.listObjects({ continuationToken });
             for (let entry of objects.Contents) {
                 let match = false;
                 if (
-                    domain &&
-                    entry.Key.match(`${domain}/`) &&
+                    prefix &&
+                    entry.Key.match(`${prefix}/`) &&
                     entry.Key.match(this.identifierFile)
                 ) {
                     match = true;
-                } else if (!domain && entry.Key.match(this.identifierFile)) {
+                } else if (!prefix && entry.Key.match(this.identifierFile)) {
                     match = true;
                 }
                 if (match) {

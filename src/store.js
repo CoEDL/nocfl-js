@@ -4,7 +4,7 @@ import hasha from "hasha";
 import { Indexer } from "./indexer.js";
 import mime from "mime-types";
 import lodashPkg from "lodash";
-const { isString, isArray, chunk, uniqBy } = lodashPkg;
+const { isUndefined, isString, isArray, chunk, uniqBy } = lodashPkg;
 
 const specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
 
@@ -35,19 +35,40 @@ const specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
 /** Class representing an S3 store. */
 export class Store {
     /**
-     * Interact with a store in an S3 bucket.
+     * Interact with an object in an S3 bucket.
      * @constructor
      * @param {Object} params
      * @param {Credentials} params.credentials - the AWS credentials to use for the connection
-     * @param {string} params.className - the class name of the item being operated on - must match: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$
+     * @param {string} params.prefix -  define a path prefix
+     * @param {string} params.type - the class / type of the item being operated on - must match: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$
      * @param {string} params.id - the id of the item being operated on - must match: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$
-     * @param {string} params.domain - provide this to prefix the paths by domain
      * @param {number} [params.splay=1] - the number of characters (from the start of the identifer) when converting the id to a path
      */
-    constructor({ domain = undefined, className, id, credentials, splay = 1 }) {
+    //  /**
+    //  * Interact with a store in an S3 bucket.
+    //  * @deprecated From version 2
+    //  * @constructor
+    //  * @param {Object} params
+    //  * @param {Credentials} params.credentials - the AWS credentials to use for the connection
+    //  * @param {string} params.className - the class name of the item being operated on - must match: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$
+    //  * @param {string} params.id - the id of the item being operated on - must match: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$
+    //  * @param {string} params.domain - provide this to prefix the paths by domain
+    //  * @param {number} [params.splay=1] - the number of characters (from the start of the identifer) when converting the id to a path
+    //  */
+
+    constructor({
+        domain = undefined,
+        prefix = undefined,
+        className,
+        type,
+        id,
+        credentials,
+        splay = 1,
+    }) {
         if (!id) throw new Error(`Missing required property: 'id'`);
-        if (!domain) throw new Error(`Missing required property: 'domain'`);
-        if (!className) throw new Error(`Missing required property: 'className'`);
+        if (!domain && !prefix) throw new Error(`Missing required property: 'domain' || 'prefix'`);
+        if (!className && !type)
+            throw new Error(`Missing required property: 'className' || 'type'`);
         if (!credentials) throw new Error(`Missing required property: 'credentials'`);
 
         const requiredProperties = ["bucket", "accessKeyId", "secretAccessKey", "region"];
@@ -60,11 +81,18 @@ export class Store {
         if (!isString(id)) {
             throw new Error(`The 'id' must be a string`);
         }
-        if (!isString(className)) {
+
+        if (!isUndefined && !isString(className)) {
             throw new Error(`The 'className' must be a string`);
         }
-        if (!isString(domain)) {
+        if (!isUndefined && !isString(type)) {
+            throw new Error(`The 'type' must be a string`);
+        }
+        if (!isUndefined && !isString(domain)) {
             throw new Error(`The 'domain' must be a string`);
+        }
+        if (!isUndefined && !isString(prefix)) {
+            throw new Error(`The 'prefix' must be a string`);
         }
 
         if (!id.match(/^[a-z,A-Z][a-z,A-Z,0-9,_]+$/)) {
@@ -72,25 +100,37 @@ export class Store {
                 `The identifier doesn't match the allowed format: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$`
             );
         }
-        if (!className.match(/^[a-z,A-Z][a-z,A-Z,0-9,_]+$/)) {
+        if (!isUndefined && !className.match(/^[a-z,A-Z][a-z,A-Z,0-9,_]+$/)) {
             throw new Error(
-                `The className doesn't match the allowed format: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$`
+                `The 'className' doesn't match the allowed format: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$`
+            );
+        }
+        if (!isUndefined && !type.match(/^[a-z,A-Z][a-z,A-Z,0-9,_]+$/)) {
+            throw new Error(
+                `The 'type' doesn't match the allowed format: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$`
             );
         }
 
         this.credentials = credentials;
         this.bucket = new Bucket(credentials);
         this.id = id;
-        this.className = className;
-        this.domain = domain;
-        this.itemPath = `${domain.toLowerCase()}/${className.toLowerCase()}/${id.slice(
+        this.type = type ? type : className;
+        this.prefix = prefix ? prefix : domain;
+        this.objectPath = `${this.prefix.toLowerCase()}/${this.type.toLowerCase()}/${id.slice(
             0,
             splay
         )}/${id}`;
+
+        // @deprecate v2
+        this.domain = this.prefix;
+        this.itemPath = this.objectPath;
+        this.className = this.type;
+        //
+
         this.splay = splay;
-        this.roCrateFile = nodePath.join(this.itemPath, "ro-crate-metadata.json");
-        this.inventoryFile = nodePath.join(this.itemPath, "nocfl.inventory.json");
-        this.identifierFile = nodePath.join(this.itemPath, "nocfl.identifier.json");
+        this.roCrateFile = nodePath.join(this.objectPath, "ro-crate-metadata.json");
+        this.inventoryFile = nodePath.join(this.objectPath, "nocfl.inventory.json");
+        this.identifierFile = nodePath.join(this.objectPath, "nocfl.identifier.json");
         this.roCrateSkeleton = {
             "@context": [
                 "https://w3id.org/ro/crate/1.1/context",
@@ -128,6 +168,8 @@ export class Store {
 
     /**
      * Check whether the item exists in the storage.
+     * @deprecated Use exists from version 2
+     * @see {@link exists}
      * @return {Boolean}
      */
     async itemExists() {
@@ -138,31 +180,21 @@ export class Store {
     }
 
     /**
-     * Get the item path.
-     * @return {String}
+     * Check whether the object exists in the storage.
+     * @since 1.17.0
+     * @return {Boolean}
      */
-    getItemPath() {
-        return this.itemPath;
-    }
-
-    /**
-     * Get the item identifier.
-     * @return {Object}
-     */
-    async getItemIdentifier() {
-        return await this.getJSON({ target: "nocfl.identifier.json" });
-    }
-
-    /**
-     * Get the item inventory file.
-     * @return {Object}
-     */
-    async getItemInventory() {
-        return await this.getJSON({ target: "nocfl.inventory.json" });
+    async exists() {
+        if (await this.bucket.pathExists({ path: this.identifierFile })) {
+            return true;
+        }
+        return false;
     }
 
     /**
      * Check whether the path exists in the storage.
+     * @deprecated use fileExists from version 2
+     * @see {@link fileExists}
      * @param {Object} params
      * @param {String} params.path - the path of the file to check - this is relative to the item root
      * @return {Boolean}
@@ -173,18 +205,89 @@ export class Store {
     }
 
     /**
+     * Check whether the path exists in the storage.
+     * @since 1.17.0
+     * @param {Object} params
+     * @param {String} params.path - the path of the file to check - this is relative to the item root
+     * @return {Boolean}
+     */
+    async fileExists({ path }) {
+        let target = nodePath.join(this.objectPath, path);
+        return await this.bucket.pathExists({ path: target });
+    }
+
+    /**
+     * Get the item path.
+     * @deprecated use getObjectPath from version 2
+     * @see {@link getObjectPath}
+     * @return {String}
+     */
+    getItemPath() {
+        return this.objectPath;
+    }
+
+    /**
+     * Get the path of the object in the storage.
+     * @since 1.17.0
+     * @return {String}
+     */
+    getObjectPath() {
+        return this.objectPath;
+    }
+
+    /**
+     * Get the item identifier.
+     * @deprecated use getObjectIdentifier from version 2
+     * @see {@link getObjectIdentifier}
+     * @return {Object}
+     */
+    async getItemIdentifier() {
+        return await this.getJSON({ target: "nocfl.identifier.json" });
+    }
+
+    /**
+     * Get the object identifier.
+     * @since 1.17.0
+     * @return {Object}
+     */
+    async getObjectIdentifier() {
+        return await this.getJSON({ target: "nocfl.identifier.json" });
+    }
+
+    /**
+     * Get the item inventory file.
+     * @deprecated use getObjectInventory from version 2
+     * @see {@link getObjectInventory}
+     * @return {Object}
+     */
+    async getItemInventory() {
+        return await this.getJSON({ target: "nocfl.inventory.json" });
+    }
+
+    /**
+     * Get the object inventory file.
+     * @since 1.17.0
+     * @return {Object}
+     */
+    async getObjectInventory() {
+        return await this.getJSON({ target: "nocfl.inventory.json" });
+    }
+
+    /**
      * Return the file stat.
      * @param {Object} params
      * @param {String} params.path - the path of the file to stat- this is relative to the item root
      * @return {Boolean}
      */
     async stat({ path }) {
-        let target = nodePath.join(this.itemPath, path);
+        let target = nodePath.join(this.objectPath, path);
         return await this.bucket.stat({ path: target });
     }
 
     /**
      * Create the item in the storage.
+     * @deprecated use createObject from version 2
+     * @see {@link createObject}
      * @return {Boolean}
      */
     async createItem() {
@@ -224,28 +327,55 @@ export class Store {
     }
 
     /**
+     * Create the object in the storage.
+     * @since 1.17.0
+     * @return {Boolean}
+     */
+    async createObject() {
+        if (await this.exists()) {
+            throw new Error(`An item with that identifier already exists`);
+        }
+        let roCrateFileHash = hasha(JSON.stringify(this.roCrateSkeleton));
+        await this.bucket.put({
+            target: this.roCrateFile,
+            json: this.roCrateSkeleton,
+        });
+
+        await this.bucket.put({
+            target: this.inventoryFile,
+            json: { content: { "ro-crate-metadata.json": roCrateFileHash } },
+        });
+
+        await this.bucket.put({
+            target: this.identifierFile,
+            json: {
+                id: this.id,
+                type: this.type,
+                prefix: this.prefix,
+                objectPath: this.objectPath,
+                splay: this.splay,
+            },
+        });
+
+        // patch the index file
+        await this.indexer.patchIndex({
+            action: "PUT",
+            prefix: this.prefix,
+            type: this.type,
+            id: this.id,
+            splay: this.splay,
+        });
+    }
+
+    /**
      * Get a file from the item on the storage.
      * @param {Object} params
      * @param {String} params.localPath - the local path where you want to download the file to
      * @param {String} params.target - the file on the storage, relative to the item path, that you want to download
      */
     async get({ localPath, target }) {
-        target = nodePath.join(this.itemPath, target);
+        target = nodePath.join(this.objectPath, target);
         return await this.bucket.get({ target, localPath });
-    }
-
-    /**
-     * Get file versions.
-     * @param {Object} params
-     * @param {String} params.target - the file whose versions to retrieve
-     * @return {Array} - versions of the specified file ordered newest to oldest. The file as named (ie without a version
-     *   string will be the first - newest - entry)
-     */
-    async listFileVersions({ target }) {
-        target = nodePath.basename(target, nodePath.extname(target));
-        let files = await this.bucket.listObjects({ prefix: nodePath.join(this.itemPath, target) });
-        let versions = files.Contents.map((c) => c.Key).sort();
-        return [...versions.slice(1), versions[0]].reverse();
     }
 
     /**
@@ -259,13 +389,29 @@ export class Store {
     }
 
     /**
+     * Get file versions.
+     * @param {Object} params
+     * @param {String} params.target - the file whose versions to retrieve
+     * @return {Array} - versions of the specified file ordered newest to oldest. The file as named (ie without a version
+     *   string will be the first - newest - entry)
+     */
+    async listFileVersions({ target }) {
+        target = nodePath.basename(target, nodePath.extname(target));
+        let files = await this.bucket.listObjects({
+            prefix: nodePath.join(this.objectPath, target),
+        });
+        let versions = files.Contents.map((c) => c.Key).sort();
+        return [...versions.slice(1), versions[0]].reverse();
+    }
+
+    /**
      * Get a presigned link to the file.
      * @param {Object} params
      * @param {String} params.target - the file on the storage, relative to the item path, that you want the url for
      * @param {String} params.download - get link that can be used to trigger a direct file download
      */
     async getPresignedUrl({ target, download }) {
-        target = nodePath.join(this.itemPath, target);
+        target = nodePath.join(this.objectPath, target);
         return await this.bucket.getPresignedUrl({ target, download });
     }
 
@@ -294,7 +440,7 @@ export class Store {
         mimetype = undefined,
         batch = [],
     }) {
-        if (!(await this.itemExists())) {
+        if (!(await this.exists())) {
             throw new Error(`The item doesn't exist`);
         }
 
@@ -351,21 +497,32 @@ export class Store {
                     `You can't upload a file called '${target} as that's a special file used by the system`
                 );
             }
+            let hash;
             if (localPath) {
-                let hash = await hasha.fromFile(localPath, { algorithm: "sha512" });
-                await this.updateInventory({ target, hash });
+                hash = await hasha.fromFile(localPath, { algorithm: "sha512" });
             } else if (json) {
-                let hash = hasha(JSON.stringify(json), { algorithm: "sha512" });
-                await this.updateInventory({ target, hash });
+                hash = hasha(JSON.stringify(json), { algorithm: "sha512" });
             } else {
-                let hash = hasha(content, { algorithm: "sha512" });
-                await this.updateInventory({ target, hash });
+                hash = hasha(content, { algorithm: "sha512" });
             }
-            let s3Target = nodePath.join(this.itemPath, target);
+            let s3Target = nodePath.join(this.objectPath, target);
+
             if (version) {
-                await this.version({ target: s3Target });
+                if (await this.fileExists({ path: target })) {
+                    let oldHash = await this.hashTarget({ target });
+                    if (oldHash !== hash) {
+                        await this.version({ target: s3Target });
+                    }
+                } else {
+                    await this.version({ target: s3Target });
+                }
             }
-            await this.bucket.put({ localPath, json, content, target: s3Target });
+            try {
+                await this.bucket.put({ localPath, json, content, target: s3Target });
+                await this.updateInventory({ target, hash });
+            } catch (error) {
+                console.log(error);
+            }
         }
     }
 
@@ -379,7 +536,7 @@ export class Store {
         const date = new Date().toISOString();
         const extension = nodePath.extname(source);
         const basename = nodePath.basename(source, extension);
-        target = nodePath.join(this.itemPath, `${basename}.v${date}${extension}`);
+        target = nodePath.join(this.objectPath, `${basename}.v${date}${extension}`);
         try {
             await this.bucket.copy({ source, target });
         } catch (error) {
@@ -404,9 +561,6 @@ export class Store {
             );
         }
 
-        if (!(await this.itemExists())) {
-            throw new Error(`The item doesn't exist`);
-        }
         let crate = await this.getJSON({ target: "ro-crate-metadata.json" });
 
         if (target) {
@@ -414,7 +568,7 @@ export class Store {
                 throw new Error(`target must be a string or array of strings`);
             }
             if (isString(target)) target = [target];
-            let keys = target.map((t) => nodePath.join(this.itemPath, t));
+            let keys = target.map((t) => nodePath.join(this.objectPath, t));
             await this.bucket.delete({ keys });
             crate["@graph"] = await this.__updateCrateMetadata({
                 graph: crate["@graph"],
@@ -424,7 +578,7 @@ export class Store {
             if (!isString(prefix)) {
                 throw new Error(`prefix must be a string`);
             }
-            await this.bucket.delete({ prefix: nodePath.join(this.itemPath, prefix) });
+            await this.bucket.delete({ prefix: nodePath.join(this.objectPath, prefix) });
             crate["@graph"] = await this.__updateCrateMetadata({
                 graph: crate["@graph"],
                 remove_prefix: prefix,
@@ -439,6 +593,8 @@ export class Store {
 
     /**
      * Delete the item.
+     * @deprecated use removeObject from version 2
+     * @see {@link removeObject}
      */
     async deleteItem() {
         if (!(await this.itemExists())) {
@@ -457,6 +613,23 @@ export class Store {
     }
 
     /**
+     * Delete the object in the storage.
+     * @since 1.17.0
+     */
+    async removeObject() {
+        await this.bucket.delete({ prefix: `${this.objectPath}/` });
+
+        // patch the index file
+        await this.indexer.patchIndex({
+            action: "DELETE",
+            prefix: this.prefix,
+            type: this.type,
+            id: this.id,
+            splay: this.splay,
+        });
+    }
+
+    /**
      * Recursively walk and list all of the files for the item.
      * @return a list of files
      */
@@ -464,14 +637,14 @@ export class Store {
         listItemResources = listItemResources.bind(this);
         let resources = await listItemResources({});
         resources = resources.map((r) => {
-            r.Key = r.Key.replace(`${this.itemPath}/`, "");
+            r.Key = r.Key.replace(`${this.objectPath}/`, "");
             return r;
         });
         return resources;
 
         async function listItemResources({ continuationToken }) {
             let resources = await this.bucket.listObjects({
-                prefix: `${this.itemPath}/`,
+                prefix: `${this.objectPath}/`,
                 continuationToken,
             });
             if (resources.NextContinuationToken) {
@@ -486,13 +659,22 @@ export class Store {
     }
 
     /**
+     * Resolve the full path of a file in the storage
+     * @since 1.17.0
+     * @return the full path to a file
+     */
+    resolvePath({ path }) {
+        return `${this.objectPath}/${path}`;
+    }
+
+    /**
      * Calculate the SHA512 hash of a file in storage
      * @param {Object} params
      * @param {String} params.target - the file on the storage, relative to the item path, that is to be hashed
      * @return the hash of the file or undefined
      */
     async hashTarget({ target }) {
-        target = nodePath.join(this.itemPath, target);
+        target = nodePath.join(this.objectPath, target);
 
         const stream = await this.bucket.stream({ target });
         if (stream) {
@@ -540,7 +722,7 @@ export class Store {
         )[0];
         let rootDataset = graph.filter((e) => e["@id"] === rootDescriptor.about["@id"])[0];
         if (!rootDataset) {
-            console.log(`${this.itemPath}/ro-crate-metadata.json DOES NOT have a root dataset`);
+            console.log(`${this.objectPath}/ro-crate-metadata.json DOES NOT have a root dataset`);
             return;
         }
 
