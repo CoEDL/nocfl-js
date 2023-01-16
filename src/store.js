@@ -506,6 +506,7 @@ export class Store {
      * Copy a file into the item from another part of the storage. This capability is specifically to support using
      *  different locations in the bucket for working data and repository data where the repository data might contain versioned
      *  copies of the working data.
+     * @since 1.18.0
      * @param {Object} params
      * @param {String} params.source - the source file to be copied - this must be a full path to the file inside the bucket
      * @param {String} params.target - the target location to copy the source file to; this is relative to the object path
