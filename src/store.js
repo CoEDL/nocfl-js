@@ -4,7 +4,7 @@ import hasha from "hasha";
 import { Indexer } from "./indexer.js";
 import mime from "mime-types";
 import lodashPkg from "lodash";
-const { isUndefined, isString, isArray, chunk, uniqBy } = lodashPkg;
+const { isUndefined, isString, isArray, chunk, uniqBy, flattenDeep } = lodashPkg;
 
 const specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
 
@@ -36,6 +36,7 @@ const specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
 export class Store {
     /**
      * Interact with an object in an S3 bucket.
+     * @since 1.17.0
      * @constructor
      * @param {Object} params
      * @param {Credentials} params.credentials - the AWS credentials to use for the connection
@@ -44,18 +45,6 @@ export class Store {
      * @param {string} params.id - the id of the item being operated on - must match: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$
      * @param {number} [params.splay=1] - the number of characters (from the start of the identifer) when converting the id to a path
      */
-    //  /**
-    //  * Interact with a store in an S3 bucket.
-    //  * @deprecated From version 2
-    //  * @constructor
-    //  * @param {Object} params
-    //  * @param {Credentials} params.credentials - the AWS credentials to use for the connection
-    //  * @param {string} params.className - the class name of the item being operated on - must match: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$
-    //  * @param {string} params.id - the id of the item being operated on - must match: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$
-    //  * @param {string} params.domain - provide this to prefix the paths by domain
-    //  * @param {number} [params.splay=1] - the number of characters (from the start of the identifer) when converting the id to a path
-    //  */
-
     constructor({
         domain = undefined,
         prefix = undefined,
@@ -445,54 +434,40 @@ export class Store {
             throw new Error(`The item doesn't exist`);
         }
 
-        if (!batch.length && !target) {
+        if (!target && !batch.length) {
             // nothing to do
             return;
         }
 
+        if (target && !batch.length) {
+            batch = [{ localPath, json, content, target, registerFile, version, mimetype }];
+        }
+
+        let files = [];
         putFile = putFile.bind(this);
-        if (batch.length) {
-            let chunks = chunk(batch, 5);
-            for (let chunk of chunks) {
-                let transfers = chunk.map((params) => putFile(params));
-                await Promise.all(transfers);
-            }
-        } else {
-            await putFile({ localPath, json, content, target, registerFile, version });
-        }
 
-        // get the crate file
-        let crate = await this.getJSON({ target: "ro-crate-metadata.json" });
-
-        // patch in any updates that need to be patched in
-        if (target && registerFile) {
-            crate["@graph"] = await this.__updateCrateMetadata({
-                graph: crate["@graph"],
-                add_target: target,
-                mimetype,
+        // upload the batch
+        let chunks = chunk(batch, 5);
+        for (let chunk of chunks) {
+            let transfers = chunk.map((params) => {
+                params.registerFile = params.registerFile ?? true;
+                return putFile(params);
             });
-        }
-        if (batch.length) {
-            for (let { target, registerFile } of batch) {
-                // if registerFile = undefined set to true by default
-                registerFile = registerFile !== undefined ? registerFile : true;
-                if (registerFile) {
-                    crate["@graph"] = await this.__updateCrateMetadata({
-                        graph: crate["@graph"],
-                        add_target: target,
-                        mimetype,
-                    });
-                }
-            }
+            let uploadedFiles = await Promise.all(transfers);
+            files.push(uploadedFiles);
         }
 
-        // update the ro crate file
-        await this.bucket.put({
-            target: this.roCrateFile,
-            json: crate,
-        });
+        files = flattenDeep(files);
 
-        async function putFile({ localPath, json, content, target, version }) {
+        // update the nocfl inventory
+        await this.__updateInventory({ files });
+
+        // register files in the crate file as required
+        files = files.filter((f) => f.registerFile);
+        await this.registerFilesInCrateMetadata({ files });
+
+        async function putFile(params) {
+            let { localPath, json, content, target, registerFile, mimetype, version } = params;
             if (specialFiles.includes(target)) {
                 throw new Error(
                     `You can't upload a file called '${target} as that's a special file used by the system`
@@ -507,23 +482,23 @@ export class Store {
                 newContentHash = hasha(content, { algorithm: "sha512" });
             }
 
-            if (version && (await this.fileExists({ path: target }))) {
-                let currentContentHash = await this.hashTarget({ target });
-                if (currentContentHash !== newContentHash) {
-                    await this.version({ target, hash: currentContentHash });
-                }
-            }
+            let uploadedFiles = [];
             try {
+                if (version) {
+                    let result = await this.__version({ sourceHash: newContentHash, target });
+                    if (result) uploadedFiles.push({ ...params, ...result });
+                }
                 await this.bucket.put({
                     localPath,
                     json,
                     content,
                     target: nodePath.join(this.getObjectPath(), target),
                 });
-                await this.updateInventory({ target, hash: newContentHash });
+                uploadedFiles.push({ ...params, target, hash: newContentHash });
             } catch (error) {
                 console.log(error);
             }
+            return uploadedFiles;
         }
     }
 
@@ -534,6 +509,8 @@ export class Store {
      * @param {Object} params
      * @param {String} params.source - the source file to be copied - this must be a full path to the file inside the bucket
      * @param {String} params.target - the target location to copy the source file to; this is relative to the object path
+     * @param {Boolean} params.registerFile=true - whether the file should be registered in ro-crate-metadata.json.
+     *  The file will be registered in the hasPart property of the root dataset if there isn't already an entry for the file.
      * @param {Boolean} params.version=false - whether the file should be versioned. If true, the existing file will be copied
      *  to ${file}.v${date as ISO String}.{ext} before the new version is uploaded to the target name
      * @param {Transfer[]} params.batch - an array of objects defining content to put into the store where the params
@@ -541,8 +518,8 @@ export class Store {
      */
     async copy({
         source = undefined,
-        bucket = undefined,
         target = undefined,
+        registerFile = true,
         version = false,
         batch = [],
     }) {
@@ -550,69 +527,90 @@ export class Store {
             throw new Error(`The item doesn't exist`);
         }
 
-        if (!batch.length && !target) {
+        if (!target && !batch.length) {
             // nothing to do
             return;
         }
 
-        copyFile = copyFile.bind(this);
-        if (batch.length) {
-            let chunks = chunk(batch, 5);
-            for (let chunk of chunks) {
-                let transfers = chunk.map((params) => copyFile(params));
-                await Promise.all(transfers);
-            }
-        } else {
-            await copyFile({ source, bucket, target, registerFile, version });
+        if (target && !batch.length) {
+            batch = [{ source, target, registerFile, version }];
         }
 
-        async function copyFile({ source, target, version }) {
+        let files = [];
+        copyFile = copyFile.bind(this);
+
+        let chunks = chunk(batch, 5);
+        for (let chunk of chunks) {
+            let transfers = chunk.map((params) => {
+                params.registerFile = params.registerFile ?? true;
+                return copyFile(params);
+            });
+            let uploadedFiles = await Promise.all(transfers);
+            files.push(uploadedFiles);
+        }
+
+        // update the nocfl inventory
+        files = flattenDeep(files);
+        await this.__updateInventory({ files });
+
+        // register files in the crate file as required
+        files = files.filter((f) => f.registerFile);
+        await this.registerFilesInCrateMetadata({ files });
+
+        async function copyFile(params) {
+            let { source, target, version } = params;
             if (specialFiles.includes(target)) {
                 throw new Error(
                     `You can't upload a file called '${target} as that's a special file used by the system`
                 );
             }
+
+            let uploadedFiles = [];
             let sourceHash = await this.hashTarget({ target: source, relative: false });
-            if (version && (await this.fileExists({ path: target }))) {
-                let targetHash = await this.hashTarget({ target });
-                if (sourceHash !== targetHash) {
-                    await this.version({ target, hash: targetHash });
-                }
-            }
             try {
+                if (version) {
+                    let result = await this.__version({ sourceHash, target });
+                    if (result) uploadedFiles.push({ ...params, ...result });
+                }
                 await this.bucket.copy({ source, target: `${this.getObjectPath()}/${target}` });
-                await this.updateInventory({ target, hash: sourceHash });
+                uploadedFiles.push({ ...params, target, hash: sourceHash });
             } catch (error) {
                 console.log(error);
             }
+            return uploadedFiles;
         }
     }
 
-    // TODO method to add all files to the crate
-    //   TODO it should not overwrite any files that were added by the user
-    //  deprecate registerfile from put
-    async registerFilesInCrateMetadata() {}
-
     /**
-     * Version a file.
-     * @param {Object} params
-     * @param {String} params.target - the file on the storage, relative to the item path, that is to be versioned
+     * Register a set of files in ro-crate-metadata.json. If no files are defined the method will register all files that are not special files.
+     * @since 1.18.0
+     * @param {String[]} [files] - if provided, the array of file names to be registered, relative to the root of the object.
+     * @returns
      */
-    async version({ target, hash }) {
-        // can't version a target that isn't there
-        if (!(await this.fileExists({ path: target }))) return;
+    async registerFilesInCrateMetadata({ files = [] }) {
+        // get the crate file
+        let crate = await this.getJSON({ target: "ro-crate-metadata.json" });
 
-        const source = nodePath.join(this.objectPath, target);
-        const date = new Date().toISOString();
-        const extension = nodePath.extname(source);
-        const basename = nodePath.basename(source, extension);
-        target = `${basename}.v${date}${extension}`;
-        try {
-            await this.bucket.copy({ source, target: nodePath.join(this.objectPath, target) });
-            await this.updateInventory({ target, hash });
-        } catch (error) {
-            throw new Error(error.message);
+        if (!files.length) {
+            files = await this.listResources();
+            files = files
+                .map((f) => f.Key)
+                .filter((f) => ![...specialFiles, "ro-crate-metadata.json"].includes(f));
         }
+
+        for (let file of files) {
+            crate["@graph"] = await this.__updateCrateMetadata({
+                graph: crate["@graph"],
+                add_target: file.target,
+                mimetype: file.mimetype,
+            });
+        }
+
+        // save the crate file back
+        await this.bucket.put({
+            target: this.roCrateFile,
+            json: crate,
+        });
     }
 
     /**
@@ -752,22 +750,6 @@ export class Store {
     }
 
     /**
-     * Update the file inventory.
-     * @param {Object} params
-     * @param {String} params.target - the file on the storage, relative to the item path
-     * @param {String} params.hash - the hash (checksum) of the file
-     * @return a list of files
-     */
-    async updateInventory({ target, hash }) {
-        let inventory = JSON.parse(await this.bucket.get({ target: this.inventoryFile }));
-        inventory.content[target] = hash;
-        await this.bucket.put({
-            target: this.inventoryFile,
-            json: inventory,
-        });
-    }
-
-    /**
      * Update the hasPart property of the root dataset.
      * @private
      * @param {Object} params
@@ -845,5 +827,54 @@ export class Store {
             return e;
         });
         return graph;
+    }
+
+    /**
+     * Update the file inventory.
+     * @private
+     * @param {Object} params
+     * @param {Object[]} params.files - an array of file objects and hashes to be added to the inventory
+     * @return a list of files
+     */
+    async __updateInventory({ files = [] }) {
+        // let inventory = JSON.parse(await this.bucket.get({ target: this.inventoryFile }));
+        let inventory = await this.getObjectInventory();
+        for (let file of files) {
+            inventory.content[file.target] = file.hash;
+        }
+        await this.bucket.put({
+            target: this.inventoryFile,
+            json: inventory,
+        });
+    }
+
+    /**
+     * Version a file.
+     * @private
+     * @param {Object} params
+     * @param {String} params.target - the file on the storage, relative to the item path, that is to be versioned
+     */
+    async __version({ sourceHash, target }) {
+        // can't version a target that isn't there
+        let exists = await this.fileExists({ path: target });
+        if (!exists) return;
+
+        let targetHash = await this.hashTarget({ target });
+        if (sourceHash === targetHash) {
+            // nothing to do - same file
+            return;
+        }
+
+        const source = nodePath.join(this.getObjectPath(), target);
+        const date = new Date().toISOString();
+        const extension = nodePath.extname(target);
+        const basename = nodePath.basename(target, extension);
+        target = `${basename}.v${date}${extension}`;
+        try {
+            await this.bucket.copy({ source, target: nodePath.join(this.objectPath, target) });
+            return { target, hash: targetHash };
+        } catch (error) {
+            throw new Error(error.message);
+        }
     }
 }

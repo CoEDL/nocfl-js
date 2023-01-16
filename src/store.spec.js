@@ -247,7 +247,7 @@ describe("Test storage actions", () => {
 
         await bucket.delete({ prefix: store.getObjectPath() });
     });
-    test("it should do nothing when target undefined and batch length = 0 in put", async () => {
+    test("it should do nothing when target undefined and batch length = 0 in put method", async () => {
         const file = "s3.js";
         const store = new Store({ domain, className: "item", id: "test", credentials });
         await store.createObject();
@@ -284,7 +284,7 @@ describe("Test storage actions", () => {
         expect(resources.filter((r) => r.Key.match(/^file.*/)).length).toEqual(2);
         expect(resources.length).toEqual(5);
 
-        await store.put({ json: { version: 3 }, target: file, version: true });
+        await store.put({ json: { version: 1 }, target: file, version: true });
         resources = await store.listResources();
 
         let versions = await store.listFileVersions({ target: file });
@@ -292,6 +292,13 @@ describe("Test storage actions", () => {
         expect(versions[0]).toEqual(`file.json`);
         expect(versions[1]).toMatch(/file\.v.*\.json/);
         expect(versions[2]).toMatch(/file\.v.*\.json/);
+
+        let crate = await store.getJSON({ target: "ro-crate-metadata.json" });
+        expect(crate["@graph"].length).toEqual(5);
+        expect(crate["@graph"].filter((e) => e["@type"] === "File").length).toEqual(3);
+
+        let inventory = await store.getObjectInventory();
+        expect(Object.keys(inventory.content).length).toEqual(4);
 
         await bucket.delete({ prefix: store.getObjectPath() });
         await remove(path.join("/tmp", file));
@@ -751,7 +758,7 @@ describe("Test storage actions", () => {
         await bucket.delete({ prefix: store.getObjectPath() });
         await remove(path.join("/tmp", file));
     });
-    test("it should be able to copy in a file from another location in the bucket and not version it", async () => {
+    test("it should be able to copy a file from another location in the bucket and not version it", async () => {
         const file = "file.json";
         const source = new Store({
             prefix: `${domain}/workspace`,
@@ -789,7 +796,7 @@ describe("Test storage actions", () => {
         await bucket.delete({ prefix: source.getObjectPath() });
         await bucket.delete({ prefix: target.getObjectPath() });
     });
-    test("it should be able to copy in a file from another location in the bucket and version it", async () => {
+    test("it should be able to copy a file from another location in the bucket and version it", async () => {
         const file = "file.json";
         const source = new Store({
             prefix: `${domain}/workspace`,
@@ -832,6 +839,52 @@ describe("Test storage actions", () => {
 
         await bucket.delete({ prefix: source.getObjectPath() });
         await bucket.delete({ prefix: target.getObjectPath() });
+    });
+    test("it should be able to automatically register all files in the crate metadata file", async () => {
+        const store = new Store({
+            prefix: `${domain}/workspace`,
+            type: "item",
+            id: "test",
+            credentials,
+        });
+        await store.createObject();
+
+        // put a file into the source
+        await store.put({ json: { version: 1 }, target: "file1.json" });
+        await store.put({ json: { version: 1 }, target: "file2.json" });
+        await store.registerFilesInCrateMetadata({});
+
+        let crate = await store.getJSON({ target: "ro-crate-metadata.json" });
+        expect(crate["@graph"].length).toEqual(4);
+        expect(crate["@graph"].filter((e) => e["@type"] === "File").length).toEqual(2);
+
+        await bucket.delete({ prefix: store.getObjectPath() });
+    });
+    test("it should be able to verify the files in an object", async () => {
+        const store = new Store({
+            prefix: `${domain}/workspace`,
+            type: "item",
+            id: "test",
+            credentials,
+        });
+        await store.createObject();
+
+        // put a file into the source
+        await store.put({ json: { version: 1 }, target: "file1.json" });
+        await store.put({
+            batch: [
+                { json: { version: 2 }, target: "file1.json", version: true },
+                { json: { version: 1 }, target: "file2.json" },
+            ],
+        });
+        await store.registerFilesInCrateMetadata({});
+
+        let crate = await store.getJSON({ target: "ro-crate-metadata.json" });
+        let inventory = await store.getObjectInventory();
+        // console.log(crate);
+        // console.log(inventory);
+
+        await bucket.delete({ prefix: store.getObjectPath() });
     });
 });
 
