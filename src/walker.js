@@ -42,22 +42,24 @@ export class Walker extends EventEmitter {
         async function __walker({ continuationToken }) {
             prefix = prefix ? prefix : domain;
             let objects = await this.bucket.listObjects({ continuationToken });
-            for (let entry of objects.Contents) {
-                let match = false;
-                if (
-                    prefix &&
-                    entry.Key.match(`${prefix}/`) &&
-                    entry.Key.match(this.identifierFile)
-                ) {
-                    match = true;
-                } else if (!prefix && entry.Key.match(this.identifierFile)) {
-                    match = true;
-                }
-                if (match) {
-                    let inventory = await this.bucket.readJSON({
-                        target: entry.Key,
-                    });
-                    this.emit("object", inventory);
+            if (objects?.Contents?.length) {
+                for (let entry of objects?.Contents) {
+                    let match = false;
+                    if (
+                        prefix &&
+                        entry.Key.match(`${prefix}/`) &&
+                        entry.Key.match(this.identifierFile)
+                    ) {
+                        match = true;
+                    } else if (!prefix && entry.Key.match(this.identifierFile)) {
+                        match = true;
+                    }
+                    if (match) {
+                        let inventory = await this.bucket.readJSON({
+                            target: entry.Key,
+                        });
+                        this.emit("object", inventory);
+                    }
                 }
             }
             if (objects.NextContinuationToken) {
