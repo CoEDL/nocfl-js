@@ -2,6 +2,10 @@
 
 An opinionated S3 storage library inspired by ocfl but simpler.
 
+[![npm version][npm-version-src]][npm-version-href]
+[![npm downloads][npm-downloads-src]][npm-downloads-href]
+[![Github Actions][github-actions-src]][github-actions-href]
+
 ## Table of Contents
 
 - [nocfl-js](#nocfl-js)
@@ -20,10 +24,6 @@ An opinionated S3 storage library inspired by ocfl but simpler.
   - [Create an item and put a file to it](#create-an-item-and-put-a-file-to-it)
 - [Indexer](#indexer)
 - [Walker](#walker)
-
-[![npm version][npm-version-src]][npm-version-href]
-[![npm downloads][npm-downloads-src]][npm-downloads-href]
-[![Github Actions][github-actions-src]][github-actions-href]
 
 # Repository and Documentation
 
