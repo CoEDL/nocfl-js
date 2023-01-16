@@ -585,7 +585,6 @@ export class Store {
      * Register a set of files in ro-crate-metadata.json. If no files are defined the method will register all files that are not special files.
      * @since 1.18.0
      * @param {String[]} [files] - if provided, the array of file names to be registered, relative to the root of the object.
-     * @returns
      */
     async registerFilesInCrateMetadata({ files = [] }) {
         // get the crate file
@@ -696,7 +695,7 @@ export class Store {
 
     /**
      * Recursively walk and list all of the files for the item.
-     * @return a list of files
+     * @return { String[]} - a list of files
      */
     async listResources() {
         listItemResources = listItemResources.bind(this);
@@ -727,7 +726,7 @@ export class Store {
      * Resolve the full path of a file in the storage
      * @since 1.17.0
      * @param {String} params.path - the path to the file relative to the object root that it to be resolved
-     * @return the full path to a file
+     * @return {String} - the full path to a file
      */
     resolvePath({ path }) {
         return `${this.objectPath}/${path}`;
@@ -737,7 +736,7 @@ export class Store {
      * Calculate the SHA512 hash of a file in storage
      * @param {Object} params
      * @param {String} params.target - the file on the storage, relative to the item path, that is to be hashed
-     * @return the hash of the file or undefined
+     * @return {String} - the hash of the file or undefined
      */
     async hashTarget({ target, relative = true }) {
         if (relative) target = nodePath.join(this.objectPath, target);
@@ -757,7 +756,7 @@ export class Store {
      * @param {String} params.add_target - the name of a file to add to the hasPart property
      * @param {Array.<String>} params.remove_keys - an array of keys and entities to remove from the graph
      * @param {String} params.remove_prefix - a string prefix to match on and remove from the graph
-     * @return the graph
+     * @return {Object} the graph
      */
     async __updateCrateMetadata({
         graph,
@@ -834,7 +833,7 @@ export class Store {
      * @private
      * @param {Object} params
      * @param {Object[]} params.files - an array of file objects and hashes to be added to the inventory
-     * @return a list of files
+     * @return {String[]} - a list of files
      */
     async __updateInventory({ files = [] }) {
         // let inventory = JSON.parse(await this.bucket.get({ target: this.inventoryFile }));
