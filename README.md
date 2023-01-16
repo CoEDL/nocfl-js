@@ -2,10 +2,6 @@
 
 An opinionated S3 storage library inspired by ocfl but simpler.
 
-[![npm version][npm-version-src]][npm-version-href]
-[![npm downloads][npm-downloads-src]][npm-downloads-href]
-[![Github Actions][github-actions-src]][github-actions-href]
-
 ## Table of Contents
 
 - [nocfl-js](#nocfl-js)
@@ -96,13 +92,12 @@ listFileVersions({ target: 'something.txt' })
 
 When creating a new item you need to
 
--   \- pass in a domain name (really, this is just a string prefix but a domain name is a good
-    option)
--   \- pass in the primary class of the data type (e.g. Collection, Item, Person etc)
--   \- pass in the item identifier
+-   \- pass in a `prefix` name (a domain name is a good option)
+-   \- pass in the primary `type` of the data type (e.g. Collection, Item, Person etc)
+-   \- pass in the object identifier
 
-Both `id` and `className` must start with letter (upper or lowercase) and be followed by any number
-of letters (upper and lower), numbers and underscore. Any other characters will not be accepted and
+Both `id` and `type` must start with letter (upper or lowercase) and be followed by any number of
+letters (upper and lower), numbers and underscore. Any other characters will not be accepted and
 result in an error. Path creation will use the first letter of the identifier to prefix the item
 (this is configurable by defining the splay property in the constructor). The domain and class name
 will be lowercased.
@@ -112,12 +107,12 @@ Path creation from the identifier is illustrated following:
 Examples:
 
 ```
--   domain: example.com, class: Item, id: test -> `(bucket)/example.com/item/t/test (splay = default = 1)`
--   domain: eXamPLe.cOm, class: Item, id: test -> `(bucket)/example.com/item/t/test (splay = default = 1)`
+-   prefix: example.com, type: Item, id: test -> `(bucket)/example.com/item/t/test (splay = default = 1)`
+-   prefix: eXamPLe.cOm, type: Item, id: test -> `(bucket)/example.com/item/t/test (splay = default = 1)`
 
--   domain: example.com, class: Collection, id: test, splay: 2 -> `(bucket)/example.com/collection/te/test`
--   domain: example.com, class: Collection, id: test, splay: 4 -> `(bucket)/example.com/collection/test/test`
--   domain: example.com, class: Collection, id: test, splay: 10 -> `(bucket)/example.com/collection/test/test`
+-   prefix: example.com, type: Collection, id: test, splay: 2 -> `(bucket)/example.com/collection/te/test`
+-   prefix: example.com, type: Collection, id: test, splay: 4 -> `(bucket)/example.com/collection/test/test`
+-   prefix: example.com, type: Collection, id: test, splay: 10 -> `(bucket)/example.com/collection/test/test`
 ```
 
 # Load the library
@@ -141,10 +136,10 @@ the storage and just generally work with them.
 
 ```
 // get a hook to the storage
-const store = new Store({ className: "item", id: "test", credentials });
+const store = new Store({ prefix: "exmaple.com", type: "item", id: "test", credentials });
 
-// create the item
-await store.createItem();
+// create the object
+await store.createObject();
 
 // upload a file to it
 await store.put({ localPath: path.join(__dirname, file), target: file });
@@ -178,7 +173,7 @@ const indexer = new Indexer({credentials})
 await indexer.createIndices({})
 ```
 
-This will walk the storage and create an `indices folder per domain` which contains a folder for
+This will walk the storage and create an `indices folder per prefix` which contains a folder for
 each type it finds (collection, item, etc) and within those folders, an index file for each letter
 of the alphabet:
 
@@ -208,17 +203,13 @@ The you can operate on those:
 
 ```
 // list all indices in the domain
-listIndices({ domain: 'domain1.example.com' })
+listIndices({ prefix: 'domain1.example.com' })
 
 // list all indices of type in the domain
-listIndices({ domain: 'domain1.example.com', className: 'collection' })
+listIndices({ prefix: 'domain1.example.com', type: 'collection' })
 
 // get a specific index
-getIndex({ domain: 'domain1.example.com', className: 'collection', prefix: 'a'})
-
-or
-
-getIndex({ domain: 'domain1.example.com', className: 'collection', file: 'a.json'})
+getIndex({ prefix: 'domain1.example.com', type: 'collection', file: 'a.json'})
 ```
 
 # Walker
