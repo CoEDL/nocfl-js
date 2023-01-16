@@ -263,18 +263,20 @@ class Walker extends EventEmitter {
     async function __walker({ continuationToken }) {
       prefix = prefix ? prefix : domain;
       let objects = await this.bucket.listObjects({ continuationToken });
-      for (let entry of objects.Contents) {
-        let match = false;
-        if (prefix && entry.Key.match(`${prefix}/`) && entry.Key.match(this.identifierFile)) {
-          match = true;
-        } else if (!prefix && entry.Key.match(this.identifierFile)) {
-          match = true;
-        }
-        if (match) {
-          let inventory = await this.bucket.readJSON({
-            target: entry.Key
-          });
-          this.emit("object", inventory);
+      if (objects?.Contents?.length) {
+        for (let entry of objects?.Contents) {
+          let match = false;
+          if (prefix && entry.Key.match(`${prefix}/`) && entry.Key.match(this.identifierFile)) {
+            match = true;
+          } else if (!prefix && entry.Key.match(this.identifierFile)) {
+            match = true;
+          }
+          if (match) {
+            let inventory = await this.bucket.readJSON({
+              target: entry.Key
+            });
+            this.emit("object", inventory);
+          }
         }
       }
       if (objects.NextContinuationToken) {
@@ -284,7 +286,7 @@ class Walker extends EventEmitter {
   }
 }
 
-const { orderBy, uniqBy: uniqBy$1 } = lodashPkg;
+const { orderBy, uniqBy: uniqBy$1, random } = lodashPkg;
 class Indexer {
   constructor({ credentials }) {
     if (!credentials)
@@ -338,19 +340,15 @@ class Indexer {
     }
     prefix = prefix ?? domain;
     type = type ?? className;
-    let indexFileName = `${prefix}/indices/${type}/${id.slice(0, 1).toLowerCase()}.json`;
-    let indexFile = [];
-    try {
-      indexFile = await this.bucket.readJSON({ target: indexFileName });
-    } catch (error) {
-    }
-    if (action === "PUT") {
-      indexFile.push({ prefix, type, id, splay });
-    } else if (action === "DELETE") {
-      indexFile = indexFile.filter((i) => i.id !== id);
-    }
-    indexFile = uniqBy$1(indexFile, "id");
-    await this.bucket.put({ target: indexFileName, json: indexFile });
+    let indexBase = `${prefix}/indices/${type}`;
+    let patch = {
+      action,
+      data: { prefix, type, id, splay }
+    };
+    let patchFile = `patch-${hasha(JSON.stringify(patch), { algorithm: "sha256" })}`;
+    await this.bucket.put({ target: `${indexBase}/${patchFile}`, json: patch });
+    await new Promise((resolve) => setTimeout(resolve, random(0, 1, true) * 300));
+    await this.__patchIndices({ prefix, type });
   }
   async listIndices({ prefix = null, domain = null, type = null, className = null }) {
     if (!prefix)
@@ -361,6 +359,8 @@ class Indexer {
     if (type)
       prefix = `${prefix}/${type}`;
     let files = (await this.bucket.listObjects({ prefix })).Contents;
+    if (!files)
+      return [];
     files = files.map((f) => f.Key);
     return files;
   }
@@ -373,11 +373,68 @@ class Indexer {
       throw new Error(`You must provide 'file'`);
     let indexFile;
     indexFile = `${prefix}/indices/${type}/${file}`;
-    return await this.bucket.readJSON({ target: indexFile });
+    try {
+      return await this.bucket.readJSON({ target: indexFile });
+    } catch (error) {
+      if (error.message === "The specified key does not exist.")
+        return `Index file does not exist`;
+      throw new Error(error.message);
+    }
+  }
+  async __patchIndices({ prefix, type, count = 1 }) {
+    const base = `${prefix}/indices/${type}`;
+    const lockFile = `${base}/.update`;
+    let exists = await this.bucket.pathExists({ path: lockFile });
+    if (exists) {
+      if (count < 3) {
+        count += 1;
+        await new Promise((resolve) => setTimeout(resolve, random(1, 2, true) * 1e3));
+        await this.__patchIndices({ prefix, type, count });
+      }
+    }
+    await this.bucket.put({ target: lockFile, json: { date: new Date() } });
+    let patchFiles = await this.bucket.listObjects({ prefix: `${base}/patch` });
+    patchFiles = patchFiles?.Contents?.map((f) => f.Key);
+    if (!patchFiles?.length) {
+      await this.bucket.delete({ keys: [lockFile] });
+      return;
+    }
+    let indexFiles = {};
+    for (let file of patchFiles) {
+      let patch;
+      try {
+        patch = await this.bucket.readJSON({ target: file });
+      } catch (error) {
+        continue;
+      }
+      let indexFileName = `${base}/${patch.data.id.slice(0, 1).toLowerCase()}.json`;
+      let indexFile = indexFiles[indexFileName];
+      if (!indexFile) {
+        try {
+          indexFiles[indexFileName] = await this.bucket.readJSON({
+            target: indexFileName
+          });
+        } catch (error) {
+          indexFiles[indexFileName] = [];
+        }
+      }
+      if (patch.action === "PUT") {
+        indexFiles[indexFileName].push(patch.data);
+      } else if (patch.action === "DELETE") {
+        indexFiles[indexFileName] = indexFiles[indexFileName].filter(
+          (i) => i.id !== patch.data.id
+        );
+      }
+      indexFiles[indexFileName] = uniqBy$1(indexFiles[indexFileName], "id");
+    }
+    for (let file of Object.keys(indexFiles)) {
+      await this.bucket.put({ target: file, json: indexFiles[file] });
+    }
+    await this.bucket.delete({ keys: [lockFile, ...patchFiles] });
   }
 }
 
-const { isUndefined, isString, isArray, chunk, uniqBy } = lodashPkg;
+const { isUndefined, isString, isArray, chunk, uniqBy, flattenDeep } = lodashPkg;
 const specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
 class Store {
   constructor({
@@ -600,7 +657,8 @@ class Store {
       prefix: nodePath.join(this.objectPath, target)
     });
     let versions = files.Contents.map((c) => c.Key).sort();
-    return [...versions.slice(1), versions[0]].reverse();
+    versions = [...versions.slice(1), versions[0]].reverse();
+    return versions.map((v) => v.replace(`${this.getObjectPath()}/`, ""));
   }
   async getPresignedUrl({ target, download }) {
     target = nodePath.join(this.objectPath, target);
@@ -619,89 +677,133 @@ class Store {
     if (!await this.exists()) {
       throw new Error(`The item doesn't exist`);
     }
-    if (!batch.length && !target) {
+    if (!target && !batch.length) {
       return;
     }
-    transfer = transfer.bind(this);
-    if (batch.length) {
-      let chunks = chunk(batch, 5);
-      for (let chunk2 of chunks) {
-        let transfers = chunk2.map((t) => transfer(t));
-        await Promise.all(transfers);
-      }
-    } else {
-      await transfer({ localPath, json, content, target, registerFile, version });
+    if (target && !batch.length) {
+      batch = [{ localPath, json, content, target, registerFile, version, mimetype }];
     }
-    let crate = await this.getJSON({ target: "ro-crate-metadata.json" });
-    if (target && registerFile) {
-      crate["@graph"] = await this.__updateCrateMetadata({
-        graph: crate["@graph"],
-        add_target: target,
-        mimetype
+    let files = [];
+    putFile = putFile.bind(this);
+    let chunks = chunk(batch, 5);
+    for (let chunk2 of chunks) {
+      let transfers = chunk2.map((params) => {
+        params.registerFile = params.registerFile ?? true;
+        return putFile(params);
       });
+      let uploadedFiles = await Promise.all(transfers);
+      files.push(uploadedFiles);
     }
-    if (batch.length) {
-      for (let { target: target2, registerFile: registerFile2 } of batch) {
-        registerFile2 = registerFile2 !== void 0 ? registerFile2 : true;
-        if (registerFile2) {
-          crate["@graph"] = await this.__updateCrateMetadata({
-            graph: crate["@graph"],
-            add_target: target2,
-            mimetype
-          });
-        }
-      }
-    }
-    await this.bucket.put({
-      target: this.roCrateFile,
-      json: crate
-    });
-    async function transfer({ localPath: localPath2, json: json2, content: content2, target: target2, version: version2 }) {
+    files = flattenDeep(files);
+    await this.__updateInventory({ files });
+    files = files.filter((f) => f.registerFile);
+    await this.registerFilesInCrateMetadata({ files });
+    async function putFile(params) {
+      let { localPath: localPath2, json: json2, content: content2, target: target2, registerFile: registerFile2, mimetype: mimetype2, version: version2 } = params;
       if (specialFiles.includes(target2)) {
         throw new Error(
           `You can't upload a file called '${target2} as that's a special file used by the system`
         );
       }
-      let hash;
+      let newContentHash;
       if (localPath2) {
-        hash = await hasha.fromFile(localPath2, { algorithm: "sha512" });
+        newContentHash = await hasha.fromFile(localPath2, { algorithm: "sha512" });
       } else if (json2) {
-        hash = hasha(JSON.stringify(json2), { algorithm: "sha512" });
+        newContentHash = hasha(JSON.stringify(json2), { algorithm: "sha512" });
       } else {
-        hash = hasha(content2, { algorithm: "sha512" });
+        newContentHash = hasha(content2, { algorithm: "sha512" });
       }
-      let s3Target = nodePath.join(this.objectPath, target2);
-      if (version2) {
-        if (await this.fileExists({ path: target2 })) {
-          let oldHash = await this.hashTarget({ target: target2 });
-          if (oldHash !== hash) {
-            await this.version({ target: s3Target });
-          }
-        } else {
-          await this.version({ target: s3Target });
-        }
-      }
+      let uploadedFiles = [];
       try {
-        await this.bucket.put({ localPath: localPath2, json: json2, content: content2, target: s3Target });
-        await this.updateInventory({ target: target2, hash });
+        if (version2) {
+          let result = await this.__version({ sourceHash: newContentHash, target: target2 });
+          if (result)
+            uploadedFiles.push({ ...params, ...result });
+        }
+        await this.bucket.put({
+          localPath: localPath2,
+          json: json2,
+          content: content2,
+          target: nodePath.join(this.getObjectPath(), target2)
+        });
+        uploadedFiles.push({ ...params, target: target2, hash: newContentHash });
       } catch (error) {
         console.log(error);
       }
+      return uploadedFiles;
     }
   }
-  async version({ target }) {
-    const source = target;
-    const date = new Date().toISOString();
-    const extension = nodePath.extname(source);
-    const basename = nodePath.basename(source, extension);
-    target = nodePath.join(this.objectPath, `${basename}.v${date}${extension}`);
-    try {
-      await this.bucket.copy({ source, target });
-    } catch (error) {
-      if (error.message === "The specified key does not exist.") ; else {
-        throw new Error(error.message);
-      }
+  async copy({
+    source = void 0,
+    target = void 0,
+    registerFile = true,
+    version = false,
+    batch = []
+  }) {
+    if (!await this.exists()) {
+      throw new Error(`The item doesn't exist`);
     }
+    if (!target && !batch.length) {
+      return;
+    }
+    if (target && !batch.length) {
+      batch = [{ source, target, registerFile, version }];
+    }
+    let files = [];
+    copyFile = copyFile.bind(this);
+    let chunks = chunk(batch, 5);
+    for (let chunk2 of chunks) {
+      let transfers = chunk2.map((params) => {
+        params.registerFile = params.registerFile ?? true;
+        return copyFile(params);
+      });
+      let uploadedFiles = await Promise.all(transfers);
+      files.push(uploadedFiles);
+    }
+    files = flattenDeep(files);
+    await this.__updateInventory({ files });
+    files = files.filter((f) => f.registerFile);
+    await this.registerFilesInCrateMetadata({ files });
+    async function copyFile(params) {
+      let { source: source2, target: target2, version: version2 } = params;
+      if (specialFiles.includes(target2)) {
+        throw new Error(
+          `You can't upload a file called '${target2} as that's a special file used by the system`
+        );
+      }
+      let uploadedFiles = [];
+      let sourceHash = await this.hashTarget({ target: source2, relative: false });
+      try {
+        if (version2) {
+          let result = await this.__version({ sourceHash, target: target2 });
+          if (result)
+            uploadedFiles.push({ ...params, ...result });
+        }
+        await this.bucket.copy({ source: source2, target: `${this.getObjectPath()}/${target2}` });
+        uploadedFiles.push({ ...params, target: target2, hash: sourceHash });
+      } catch (error) {
+        console.log(error);
+      }
+      return uploadedFiles;
+    }
+  }
+  async registerFilesInCrateMetadata({ files = [] }) {
+    let crate = await this.getJSON({ target: "ro-crate-metadata.json" });
+    if (!files.length) {
+      files = await this.listResources();
+      files = files.map((f) => f.Key).filter((f) => ![...specialFiles, "ro-crate-metadata.json"].includes(f));
+    }
+    for (let file of files) {
+      crate["@graph"] = await this.__updateCrateMetadata({
+        graph: crate["@graph"],
+        add_target: file.target,
+        mimetype: file.mimetype
+      });
+    }
+    await this.bucket.put({
+      target: this.roCrateFile,
+      json: crate
+    });
   }
   async delete({ target = void 0, prefix = void 0 }) {
     if (specialFiles.includes(target)) {
@@ -786,21 +888,14 @@ class Store {
   resolvePath({ path }) {
     return `${this.objectPath}/${path}`;
   }
-  async hashTarget({ target }) {
-    target = nodePath.join(this.objectPath, target);
+  async hashTarget({ target, relative = true }) {
+    if (relative)
+      target = nodePath.join(this.objectPath, target);
     const stream = await this.bucket.stream({ target });
     if (stream) {
       let hash = await hasha.fromStream(stream, { algorithm: "sha512" });
       return hash;
     }
-  }
-  async updateInventory({ target, hash }) {
-    let inventory = JSON.parse(await this.bucket.get({ target: this.inventoryFile }));
-    inventory.content[target] = hash;
-    await this.bucket.put({
-      target: this.inventoryFile,
-      json: inventory
-    });
   }
   async __updateCrateMetadata({
     graph,
@@ -864,6 +959,36 @@ class Store {
       return e;
     });
     return graph;
+  }
+  async __updateInventory({ files = [] }) {
+    let inventory = await this.getObjectInventory();
+    for (let file of files) {
+      inventory.content[file.target] = file.hash;
+    }
+    await this.bucket.put({
+      target: this.inventoryFile,
+      json: inventory
+    });
+  }
+  async __version({ sourceHash, target }) {
+    let exists = await this.fileExists({ path: target });
+    if (!exists)
+      return;
+    let targetHash = await this.hashTarget({ target });
+    if (sourceHash === targetHash) {
+      return;
+    }
+    const source = nodePath.join(this.getObjectPath(), target);
+    const date = new Date().toISOString();
+    const extension = nodePath.extname(target);
+    const basename = nodePath.basename(target, extension);
+    target = `${basename}.v${date}${extension}`;
+    try {
+      await this.bucket.copy({ source, target: nodePath.join(this.objectPath, target) });
+      return { target, hash: targetHash };
+    } catch (error) {
+      throw new Error(error.message);
+    }
   }
 }
 
