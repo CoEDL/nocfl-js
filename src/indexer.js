@@ -1,7 +1,8 @@
 import { Bucket } from "./s3.js";
 import { Walker } from "./walker.js";
 import lodashPkg from "lodash";
-const { orderBy, uniqBy } = lodashPkg;
+const { orderBy, uniqBy, random } = lodashPkg;
+import hasha from "hasha";
 
 /** Class representing an S3 Indexer. */
 export class Indexer {
@@ -65,7 +66,11 @@ export class Indexer {
     }
 
     /**
-     * Patch an index file - add new item to it or remove an existing item
+     * Patch an index file - add new item to it or remove an existing item. This method works by uploading a patch file
+     *  and then running a process to patch all the relevant index files. If it detects a lockfile (a patching process is running)
+     *  it will sleep for a short time and then try again. Given this, you probably don't want to 'await'
+     *  this in your code as it could take a while to run; depending on how many parallel patch operations are run.
+     *
      * @param {Object} params
      * @param {'PUT'|'DELETE'} params.action - the action to perform
      * @param {string} params.className - the class name of the item being operated on
@@ -81,19 +86,16 @@ export class Indexer {
         prefix = prefix ?? domain;
         type = type ?? className;
 
-        let indexFileName = `${prefix}/indices/${type}/${id.slice(0, 1).toLowerCase()}.json`;
-        let indexFile = [];
-        try {
-            indexFile = await this.bucket.readJSON({ target: indexFileName });
-        } catch (error) {}
+        let indexBase = `${prefix}/indices/${type}`;
+        let patch = {
+            action,
+            data: { prefix, type, id, splay },
+        };
+        let patchFile = `patch-${hasha(JSON.stringify(patch), { algorithm: "sha256" })}`;
 
-        if (action === "PUT") {
-            indexFile.push({ prefix, type, id, splay });
-        } else if (action === "DELETE") {
-            indexFile = indexFile.filter((i) => i.id !== id);
-        }
-        indexFile = uniqBy(indexFile, "id");
-        await this.bucket.put({ target: indexFileName, json: indexFile });
+        await this.bucket.put({ target: `${indexBase}/${patchFile}`, json: patch });
+        await new Promise((resolve) => setTimeout(resolve, random(0, 1, true) * 300));
+        await this.__patchIndices({ prefix, type });
     }
 
     /**
@@ -109,6 +111,7 @@ export class Indexer {
         type = type ?? className;
         if (type) prefix = `${prefix}/${type}`;
         let files = (await this.bucket.listObjects({ prefix })).Contents;
+        if (!files) return [];
         files = files.map((f) => f.Key);
         return files;
     }
@@ -127,6 +130,85 @@ export class Indexer {
         if (!file) throw new Error(`You must provide 'file'`);
         let indexFile;
         indexFile = `${prefix}/indices/${type}/${file}`;
-        return await this.bucket.readJSON({ target: indexFile });
+        try {
+            return await this.bucket.readJSON({ target: indexFile });
+        } catch (error) {
+            if (error.message === "The specified key does not exist.")
+                return `Index file does not exist`;
+            throw new Error(error.message);
+        }
+    }
+
+    /**
+     * Apply the index files patches to the relevant index files
+     * @private
+     * @param {Object} params
+     * @param {string} params.prefix - provide the domain of the index file
+     * @param {string} params.type - the class name of the item being operated on
+     */
+    async __patchIndices({ prefix, type, count = 1 }) {
+        const base = `${prefix}/indices/${type}`;
+        const lockFile = `${base}/.update`;
+
+        let exists = await this.bucket.pathExists({ path: lockFile });
+        if (exists) {
+            if (count < 3) {
+                count += 1;
+
+                // wait a little then try this again
+                await new Promise((resolve) => setTimeout(resolve, random(1, 2, true) * 1000));
+                await this.__patchIndices({ prefix, type, count });
+            }
+        }
+
+        // upload lock file
+        await this.bucket.put({ target: lockFile, json: { date: new Date() } });
+
+        // get list of patch files to be applied
+        let patchFiles = await this.bucket.listObjects({ prefix: `${base}/patch` });
+        patchFiles = patchFiles?.Contents?.map((f) => f.Key);
+        if (!patchFiles?.length) {
+            await this.bucket.delete({ keys: [lockFile] });
+            return;
+        }
+
+        // walk the patchFiles, download the relevant index and patch it
+        let indexFiles = {};
+        for (let file of patchFiles) {
+            let patch;
+            try {
+                patch = await this.bucket.readJSON({ target: file });
+            } catch (error) {
+                continue;
+            }
+            let indexFileName = `${base}/${patch.data.id.slice(0, 1).toLowerCase()}.json`;
+            let indexFile = indexFiles[indexFileName];
+            if (!indexFile) {
+                try {
+                    indexFiles[indexFileName] = await this.bucket.readJSON({
+                        target: indexFileName,
+                    });
+                } catch (error) {
+                    indexFiles[indexFileName] = [];
+                }
+            }
+
+            if (patch.action === "PUT") {
+                indexFiles[indexFileName].push(patch.data);
+            } else if (patch.action === "DELETE") {
+                indexFiles[indexFileName] = indexFiles[indexFileName].filter(
+                    (i) => i.id !== patch.data.id
+                );
+            }
+            indexFiles[indexFileName] = uniqBy(indexFiles[indexFileName], "id");
+        }
+
+        // upload the index files
+        for (let file of Object.keys(indexFiles)) {
+            await this.bucket.put({ target: file, json: indexFiles[file] });
+        }
+
+        // remove the lockfile and patchFiles that we just processed
+        await this.bucket.delete({ keys: [lockFile, ...patchFiles] });
     }
 }

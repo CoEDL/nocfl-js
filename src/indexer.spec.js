@@ -18,26 +18,28 @@ const credentials = {
 const bucket = new Bucket(credentials);
 
 describe(`Test managing index files - 1 domain`, () => {
-    const domain = chance.domain();
+    let prefix = chance.domain();
     beforeEach(async () => {
         await setupTestData({
-            prefix: domain,
+            prefix,
             credentials,
             count: 1,
         });
     });
+    beforeEach(async () => {
+        await bucket.delete({ prefix });
+    });
     afterEach(async () => {
-        await bucket.delete({ prefix: domain });
+        await bucket.delete({ prefix });
     });
     it("Should find all items in the repository and create index files to them", async () => {
         const indexer = new Indexer({ credentials });
-        let indexFiles = await indexer.createIndices({ prefix: domain });
+        let indexFiles = await indexer.createIndices({ prefix });
         for (let file of indexFiles) {
             expect(await bucket.pathExists({ path: file })).toBe(true);
         }
     });
     it(`should be able to PUT a reference into an index file - index file doesn't exist yet`, async () => {
-        const prefix = domain;
         const indexer = new Indexer({ credentials });
         const id = chance.word();
         const type = "collection";
@@ -56,7 +58,6 @@ describe(`Test managing index files - 1 domain`, () => {
     });
     it(`should be able to PUT a reference into an index file - index file exists`, async () => {
         const indexer = new Indexer({ credentials });
-        const prefix = domain;
 
         const store = new Store({
             prefix,
@@ -84,10 +85,9 @@ describe(`Test managing index files - 1 domain`, () => {
     });
     it(`should be able to DELETE a reference from an index file - index file exists`, async () => {
         const indexer = new Indexer({ credentials });
-        const prefix = domain;
 
         const store = new Store({
-            prefix: domain,
+            prefix,
             type: "collection",
             id: "identifier1",
             credentials,
@@ -112,7 +112,6 @@ describe(`Test managing index files - 1 domain`, () => {
     });
     it(`should be able to retrieve a specified index file`, async () => {
         const indexer = new Indexer({ credentials });
-        const prefix = domain;
 
         const store = new Store({
             prefix,
@@ -131,18 +130,117 @@ describe(`Test managing index files - 1 domain`, () => {
         let indexFiles = await indexer.createIndices({});
 
         let indexFilesList = await indexer.listIndices({
-            prefix: domain,
+            prefix,
         });
         expect(indexFilesList.length).toEqual(indexFiles.length);
 
         indexFilesList = await indexer.listIndices({
-            prefix: domain,
+            prefix,
             type: "collection",
         });
         expect(indexFilesList.length).toEqual(
             indexFiles.filter((i) => i.match("collection")).length
         );
     });
+
+    it(`should be able to PUT index references in parallel`, async () => {
+        const indexer = new Indexer({ credentials });
+        const id = "test-item";
+        const type = "item";
+        const action = "PUT";
+
+        // create the index file and put an entry into it
+        await indexer.patchIndex({
+            action: "PUT",
+            prefix,
+            type,
+            id,
+        });
+
+        // run 2 in parallel - all aiming at the same file
+        await Promise.all([
+            indexer.patchIndex({ action, prefix, type, id: "t1" }),
+            indexer.patchIndex({ action, prefix, type, id: "t2" }),
+        ]);
+
+        let index = await indexer.getIndex({ prefix, type, file: "t.json" });
+        expect(index.length).toEqual(3);
+
+        // run 5 in parallel - all aiming at the same file
+        await Promise.all([
+            indexer.patchIndex({ action, prefix, type, id: "t1" }),
+            indexer.patchIndex({ action, prefix, type, id: "t2" }),
+            indexer.patchIndex({ action, prefix, type, id: "t3" }),
+            indexer.patchIndex({ action, prefix, type, id: "t4" }),
+            indexer.patchIndex({ action, prefix, type, id: "t5" }),
+        ]);
+        index = await indexer.getIndex({ prefix, type, file: "t.json" });
+        expect(index.length).toEqual(6);
+    }, 8000);
+
+    it(`should be able to PUT and then DELETE index references in parallel - n = 5`, async () => {
+        const indexer = new Indexer({ credentials });
+        const id = "test-item";
+        const type = "item";
+        const action = "PUT";
+
+        // create the index file and put an entry into it
+        await indexer.patchIndex({
+            action: "PUT",
+            prefix,
+            type,
+            id,
+        });
+
+        // run 10 in parallel - all aiming at the same file
+        await Promise.all([
+            indexer.patchIndex({ action, prefix, type, id: "t1" }),
+            indexer.patchIndex({ action, prefix, type, id: "t2" }),
+            indexer.patchIndex({ action, prefix, type, id: "t3" }),
+            indexer.patchIndex({ action, prefix, type, id: "t4" }),
+            indexer.patchIndex({ action, prefix, type, id: "t5" }),
+        ]);
+        await Promise.all([
+            indexer.patchIndex({ action: "DELETE", prefix, type, id: "t1" }),
+            indexer.patchIndex({ action: "DELETE", prefix, type, id: "t2" }),
+            indexer.patchIndex({ action: "DELETE", prefix, type, id: "t3" }),
+            indexer.patchIndex({ action: "DELETE", prefix, type, id: "t4" }),
+            indexer.patchIndex({ action: "DELETE", prefix, type, id: "t5" }),
+        ]);
+        let index = await indexer.getIndex({ prefix, type, file: "t.json" });
+        expect(index.length).toEqual(1);
+    }, 8000);
+
+    it(`should be able to PUT index references in parallel - n = 10`, async () => {
+        const indexer = new Indexer({ credentials });
+        const id = "test-item";
+        const type = "item";
+        const action = "PUT";
+
+        // create the index file and put an entry into it
+        await indexer.patchIndex({
+            action: "PUT",
+            prefix,
+            type,
+            id,
+        });
+
+        // run 10 in parallel - all aiming at the same file
+        await Promise.all([
+            indexer.patchIndex({ action, prefix, type, id: "t1" }),
+            indexer.patchIndex({ action, prefix, type, id: "t2" }),
+            indexer.patchIndex({ action, prefix, type, id: "t3" }),
+            indexer.patchIndex({ action, prefix, type, id: "t4" }),
+            indexer.patchIndex({ action, prefix, type, id: "t5" }),
+            indexer.patchIndex({ action: "DELETE", prefix, type, id: "t6" }),
+            indexer.patchIndex({ action: "DELETE", prefix, type, id: "t7" }),
+            indexer.patchIndex({ action: "DELETE", prefix, type, id: "t8" }),
+            indexer.patchIndex({ action: "DELETE", prefix, type, id: "t9" }),
+            indexer.patchIndex({ action: "DELETE", prefix, type, id: "t10" }),
+        ]);
+        let index = await indexer.getIndex({ prefix, type, file: "t.json" });
+        expect(index.length).toEqual(6);
+    }, 8000);
 });
 
 async function setupTestData({ prefix, credentials, count = 3 }) {
