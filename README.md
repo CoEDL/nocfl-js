@@ -21,6 +21,10 @@ An opinionated S3 storage library inspired by ocfl but simpler.
 - [Indexer](#indexer)
 - [Walker](#walker)
 
+[![npm version][npm-version-src]][npm-version-href]
+[![npm downloads][npm-downloads-src]][npm-downloads-href]
+[![Github Actions][github-actions-src]][github-actions-href]
+
 # Repository and Documentation
 
 -   \- Repository: [https://github.com/CoEDL/nocfl-js](https://github.com/CoEDL/nocfl-js)
