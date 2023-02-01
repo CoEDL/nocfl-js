@@ -877,14 +877,14 @@ class Store {
     });
   }
   async listResources() {
-    listItemResources = listItemResources.bind(this);
-    let resources = await listItemResources({});
+    listObjectResources = listObjectResources.bind(this);
+    let resources = await listObjectResources({});
     resources = resources.map((r) => {
       r.Key = r.Key.replace(`${this.objectPath}/`, "");
       return r;
     });
     return resources;
-    async function listItemResources({ continuationToken }) {
+    async function listObjectResources({ continuationToken }) {
       let resources2 = await this.bucket.listObjects({
         prefix: `${this.objectPath}/`,
         continuationToken
@@ -892,7 +892,9 @@ class Store {
       if (resources2.NextContinuationToken) {
         return [
           ...resources2.Contents,
-          ...await listResources(resources2.NextContinuationToken)
+          ...await listObjectResources({
+            continuationToken: resources2.NextContinuationToken
+          })
         ];
       } else {
         return resources2.Contents;
