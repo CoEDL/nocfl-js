@@ -699,15 +699,15 @@ export class Store {
      * @return { String[]} - a list of files
      */
     async listResources() {
-        listItemResources = listItemResources.bind(this);
-        let resources = await listItemResources({});
+        listObjectResources = listObjectResources.bind(this);
+        let resources = await listObjectResources({});
         resources = resources.map((r) => {
             r.Key = r.Key.replace(`${this.objectPath}/`, "");
             return r;
         });
         return resources;
 
-        async function listItemResources({ continuationToken }) {
+        async function listObjectResources({ continuationToken }) {
             let resources = await this.bucket.listObjects({
                 prefix: `${this.objectPath}/`,
                 continuationToken,
@@ -715,7 +715,9 @@ export class Store {
             if (resources.NextContinuationToken) {
                 return [
                     ...resources.Contents,
-                    ...(await listResources(resources.NextContinuationToken)),
+                    ...(await listObjectResources({
+                        continuationToken: resources.NextContinuationToken,
+                    })),
                 ];
             } else {
                 return resources.Contents;
