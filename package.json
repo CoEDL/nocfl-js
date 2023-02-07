@@ -1,6 +1,6 @@
 {
     "name": "@coedl/nocfl-js",
-    "version": "1.21.0",
+    "version": "2.0.0",
     "description": "An opinionated S3 storage library informed by ocfl but without versioning",
     "type": "module",
     "exports": {
