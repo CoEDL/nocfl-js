@@ -1,5 +1,6 @@
 'use strict';
 
+const node_events = require('node:events');
 const clientS3 = require('@aws-sdk/client-s3');
 const libStorage = require('@aws-sdk/lib-storage');
 const s3RequestPresigner = require('@aws-sdk/s3-request-presigner');
@@ -450,7 +451,7 @@ class Indexer {
 
 const { isUndefined, isString, isArray, chunk, uniqBy, flattenDeep } = lodashPkg;
 const specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
-class Store {
+class Store extends node_events.EventEmitter {
   constructor({
     domain = void 0,
     prefix = void 0,
@@ -460,6 +461,7 @@ class Store {
     credentials,
     splay = 1
   }) {
+    super();
     if (!id)
       throw new Error(`Missing required property: 'id'`);
     if (!domain && !prefix)
@@ -700,13 +702,19 @@ class Store {
     let files = [];
     putFile = putFile.bind(this);
     let chunks = chunk(batch, 5);
-    for (let chunk2 of chunks) {
+    let countOfFilesUploaded = 0;
+    for (let [idx, chunk2] of chunks.entries()) {
       let transfers = chunk2.map((params) => {
         params.registerFile = params.registerFile ?? true;
         return putFile(params);
       });
       let uploadedFiles = await Promise.all(transfers);
       files.push(uploadedFiles);
+      countOfFilesUploaded += transfers.length;
+      this.emit("put", {
+        msg: `Uploaded batch ${idx + 1}/${chunks.length} (${countOfFilesUploaded}/${batch.length} files)`,
+        date: new Date()
+      });
     }
     files = flattenDeep(files);
     await this.__updateInventory({ files });
@@ -766,13 +774,19 @@ class Store {
     let files = [];
     copyFile = copyFile.bind(this);
     let chunks = chunk(batch, 5);
-    for (let chunk2 of chunks) {
+    let countOfFilesCopied = 0;
+    for (let [idx, chunk2] of chunks.entries()) {
       let transfers = chunk2.map((params) => {
         params.registerFile = params.registerFile ?? true;
         return copyFile(params);
       });
       let uploadedFiles = await Promise.all(transfers);
       files.push(uploadedFiles);
+      countOfFilesCopied += transfers.length;
+      this.emit("copy", {
+        msg: `Copied batch ${idx + 1}/${chunks.length} (${countOfFilesCopied}/${batch.length} files)`,
+        date: new Date()
+      });
     }
     files = flattenDeep(files);
     await this.__updateInventory({ files });
