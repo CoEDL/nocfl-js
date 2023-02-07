@@ -321,6 +321,32 @@ describe("Test storage actions", () => {
         await bucket.delete({ prefix: store.getObjectPath() });
         await remove(path.join("/tmp", file));
     });
+    test("it should be able to upload an ro crate metadata file and never register it in the crate file (or any version of it)", async () => {
+        const store = new Store({ prefix: domain, type: "item", id: "test", credentials });
+        await store.createObject();
+
+        let crate = await store.getJSON({ target: "ro-crate-metadata.json" });
+        await store.put({
+            json: crate,
+            target: "ro-crate-metadata.json",
+            registerFile: true,
+        });
+
+        crate = await store.getJSON({ target: "ro-crate-metadata.json" });
+        let rootDataset = crate["@graph"].filter((e) => e["@id"] === "./")[0];
+        expect(rootDataset.hasPart).toEqual(undefined);
+
+        await store.put({
+            json: crate,
+            target: `ro-crate-metadata.${new Date().toISOString()}.json`,
+            registerFile: true,
+        });
+        crate = await store.getJSON({ target: "ro-crate-metadata.json" });
+        rootDataset = crate["@graph"].filter((e) => e["@id"] === "./")[0];
+        expect(rootDataset.hasPart).toEqual(undefined);
+
+        await bucket.delete({ prefix: store.getObjectPath() });
+    });
     test("it should be able to upload a file, register it and not overwrite an existing entry", async () => {
         const file = "s3.js";
         const store = new Store({ prefix: domain, type: "item", id: "test", credentials });

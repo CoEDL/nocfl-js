@@ -615,7 +615,8 @@ export class Store extends EventEmitter {
     }
 
     /**
-     * Register a set of files in ro-crate-metadata.json. If no files are defined the method will register all files that are not special files.
+     * Register a set of files in ro-crate-metadata.json. If no files are defined the method will register all files that are
+     *   not special files. This includes the ro-crate-metadata file (or any version of it).
      * @since 1.18.0
      * @param {String[]} [files] - if provided, the array of file names to be registered, relative to the root of the object.
      */
@@ -627,7 +628,12 @@ export class Store extends EventEmitter {
             files = await this.listResources();
             files = files
                 .map((f) => f.Key)
-                .filter((f) => ![...specialFiles, "ro-crate-metadata.json"].includes(f));
+                .filter((f) => ![...specialFiles].includes(f))
+                .filter((f) => !f.match(/ro-crate-metadata/));
+        } else {
+            files = files
+                .filter((f) => ![...specialFiles].includes(f.target))
+                .filter((f) => !f.target.match(/ro-crate-metadata/));
         }
 
         for (let file of files) {
