@@ -452,22 +452,14 @@ class Indexer {
 const { isUndefined, isString, isArray, chunk, uniqBy, flattenDeep } = lodashPkg;
 const specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
 class Store extends node_events.EventEmitter {
-  constructor({
-    domain = void 0,
-    prefix = void 0,
-    className,
-    type,
-    id,
-    credentials,
-    splay = 1
-  }) {
+  constructor({ prefix = void 0, type, id, credentials, splay = 1 }) {
     super();
     if (!id)
       throw new Error(`Missing required property: 'id'`);
-    if (!domain && !prefix)
-      throw new Error(`Missing required property: 'domain' || 'prefix'`);
-    if (!className && !type)
-      throw new Error(`Missing required property: 'className' || 'type'`);
+    if (!prefix)
+      throw new Error(`Missing required property: 'prefix'`);
+    if (!type)
+      throw new Error(`Missing required property: 'type'`);
     if (!credentials)
       throw new Error(`Missing required property: 'credentials'`);
     const requiredProperties = ["bucket", "accessKeyId", "secretAccessKey", "region"];
@@ -479,14 +471,8 @@ class Store extends node_events.EventEmitter {
     if (!isString(id)) {
       throw new Error(`The 'id' must be a string`);
     }
-    if (!isUndefined && !isString(className)) {
-      throw new Error(`The 'className' must be a string`);
-    }
     if (!isUndefined && !isString(type)) {
       throw new Error(`The 'type' must be a string`);
-    }
-    if (!isUndefined && !isString(domain)) {
-      throw new Error(`The 'domain' must be a string`);
     }
     if (!isUndefined && !isString(prefix)) {
       throw new Error(`The 'prefix' must be a string`);
@@ -494,11 +480,6 @@ class Store extends node_events.EventEmitter {
     if (!id.match(/^[a-z,A-Z][a-z,A-Z,0-9,_]+$/)) {
       throw new Error(
         `The identifier doesn't match the allowed format: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$`
-      );
-    }
-    if (!isUndefined && !className.match(/^[a-z,A-Z][a-z,A-Z,0-9,_]+$/)) {
-      throw new Error(
-        `The 'className' doesn't match the allowed format: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$`
       );
     }
     if (!isUndefined && !type.match(/^[a-z,A-Z][a-z,A-Z,0-9,_]+$/)) {
@@ -509,15 +490,9 @@ class Store extends node_events.EventEmitter {
     this.credentials = credentials;
     this.bucket = new Bucket(credentials);
     this.id = id;
-    this.type = type ? type : className;
-    this.prefix = prefix ? prefix : domain;
-    this.objectPath = `${this.prefix.toLowerCase()}/${this.type.toLowerCase()}/${id.slice(
-      0,
-      splay
-    )}/${id}`;
-    this.domain = this.prefix;
-    this.itemPath = this.objectPath;
-    this.className = this.type;
+    this.type = type.toLowerCase();
+    this.prefix = prefix.toLowerCase();
+    this.objectPath = `${this.prefix}/${this.type}/${id.slice(0, splay)}/${id}`;
     this.splay = splay;
     this.roCrateFile = nodePath__namespace.join(this.objectPath, "ro-crate-metadata.json");
     this.inventoryFile = nodePath__namespace.join(this.objectPath, "nocfl.inventory.json");
@@ -556,40 +531,21 @@ class Store extends node_events.EventEmitter {
     };
     this.indexer = new Indexer({ credentials });
   }
-  async itemExists() {
-    if (await this.bucket.pathExists({ path: this.identifierFile })) {
-      return true;
-    }
-    return false;
-  }
   async exists() {
     if (await this.bucket.pathExists({ path: this.identifierFile })) {
       return true;
     }
     return false;
   }
-  async pathExists({ path }) {
-    let target = nodePath__namespace.join(this.itemPath, path);
-    return await this.bucket.pathExists({ path: target });
-  }
   async fileExists({ path }) {
     let target = nodePath__namespace.join(this.objectPath, path);
     return await this.bucket.pathExists({ path: target });
   }
-  getItemPath() {
-    return this.objectPath;
-  }
   getObjectPath() {
     return this.objectPath;
   }
-  async getItemIdentifier() {
-    return await this.getJSON({ target: "nocfl.identifier.json" });
-  }
   async getObjectIdentifier() {
     return await this.getJSON({ target: "nocfl.identifier.json" });
-  }
-  async getItemInventory() {
-    return await this.getJSON({ target: "nocfl.inventory.json" });
   }
   async getObjectInventory() {
     return await this.getJSON({ target: "nocfl.inventory.json" });
@@ -597,37 +553,6 @@ class Store extends node_events.EventEmitter {
   async stat({ path }) {
     let target = nodePath__namespace.join(this.objectPath, path);
     return await this.bucket.stat({ path: target });
-  }
-  async createItem() {
-    if (await this.itemExists()) {
-      throw new Error(`An item with that identifier already exists`);
-    }
-    let roCrateFileHash = hasha(JSON.stringify(this.roCrateSkeleton));
-    await this.bucket.put({
-      target: this.roCrateFile,
-      json: this.roCrateSkeleton
-    });
-    await this.bucket.put({
-      target: this.inventoryFile,
-      json: { content: { "ro-crate-metadata.json": roCrateFileHash } }
-    });
-    await this.bucket.put({
-      target: this.identifierFile,
-      json: {
-        id: this.id,
-        className: this.className,
-        domain: this.domain,
-        itemPath: this.itemPath,
-        splay: this.splay
-      }
-    });
-    await this.indexer.patchIndex({
-      action: "PUT",
-      domain: this.domain,
-      className: this.className,
-      id: this.id,
-      splay: this.splay
-    });
   }
   async createObject() {
     if (await this.exists()) {
@@ -867,19 +792,6 @@ class Store extends node_events.EventEmitter {
     await this.bucket.put({
       target: this.roCrateFile,
       json: crate
-    });
-  }
-  async deleteItem() {
-    if (!await this.itemExists()) {
-      throw new Error(`The item doesn't exist`);
-    }
-    await this.bucket.delete({ prefix: `${this.itemPath}/` });
-    await this.indexer.patchIndex({
-      action: "DELETE",
-      domain: this.domain,
-      className: this.className,
-      id: this.id,
-      splay: this.splay
     });
   }
   async removeObject() {
