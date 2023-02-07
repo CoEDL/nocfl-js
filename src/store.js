@@ -46,20 +46,11 @@ export class Store extends EventEmitter {
      * @param {string} params.id - the id of the item being operated on - must match: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$
      * @param {number} [params.splay=1] - the number of characters (from the start of the identifer) when converting the id to a path
      */
-    constructor({
-        domain = undefined,
-        prefix = undefined,
-        className,
-        type,
-        id,
-        credentials,
-        splay = 1,
-    }) {
+    constructor({ prefix = undefined, type, id, credentials, splay = 1 }) {
         super();
         if (!id) throw new Error(`Missing required property: 'id'`);
-        if (!domain && !prefix) throw new Error(`Missing required property: 'domain' || 'prefix'`);
-        if (!className && !type)
-            throw new Error(`Missing required property: 'className' || 'type'`);
+        if (!prefix) throw new Error(`Missing required property: 'prefix'`);
+        if (!type) throw new Error(`Missing required property: 'type'`);
         if (!credentials) throw new Error(`Missing required property: 'credentials'`);
 
         const requiredProperties = ["bucket", "accessKeyId", "secretAccessKey", "region"];
@@ -73,14 +64,8 @@ export class Store extends EventEmitter {
             throw new Error(`The 'id' must be a string`);
         }
 
-        if (!isUndefined && !isString(className)) {
-            throw new Error(`The 'className' must be a string`);
-        }
         if (!isUndefined && !isString(type)) {
             throw new Error(`The 'type' must be a string`);
-        }
-        if (!isUndefined && !isString(domain)) {
-            throw new Error(`The 'domain' must be a string`);
         }
         if (!isUndefined && !isString(prefix)) {
             throw new Error(`The 'prefix' must be a string`);
@@ -89,11 +74,6 @@ export class Store extends EventEmitter {
         if (!id.match(/^[a-z,A-Z][a-z,A-Z,0-9,_]+$/)) {
             throw new Error(
                 `The identifier doesn't match the allowed format: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$`
-            );
-        }
-        if (!isUndefined && !className.match(/^[a-z,A-Z][a-z,A-Z,0-9,_]+$/)) {
-            throw new Error(
-                `The 'className' doesn't match the allowed format: ^[a-z,A-Z][a-z,A-Z,0-9,_]+$`
             );
         }
         if (!isUndefined && !type.match(/^[a-z,A-Z][a-z,A-Z,0-9,_]+$/)) {
@@ -105,18 +85,9 @@ export class Store extends EventEmitter {
         this.credentials = credentials;
         this.bucket = new Bucket(credentials);
         this.id = id;
-        this.type = type ? type : className;
-        this.prefix = prefix ? prefix : domain;
-        this.objectPath = `${this.prefix.toLowerCase()}/${this.type.toLowerCase()}/${id.slice(
-            0,
-            splay
-        )}/${id}`;
-
-        // @deprecate v2
-        this.domain = this.prefix;
-        this.itemPath = this.objectPath;
-        this.className = this.type;
-        //
+        this.type = type.toLowerCase();
+        this.prefix = prefix.toLowerCase();
+        this.objectPath = `${this.prefix}/${this.type}/${id.slice(0, splay)}/${id}`;
 
         this.splay = splay;
         this.roCrateFile = nodePath.join(this.objectPath, "ro-crate-metadata.json");
@@ -158,19 +129,6 @@ export class Store extends EventEmitter {
     }
 
     /**
-     * Check whether the item exists in the storage.
-     * @deprecated Use exists from version 2
-     * @see {@link exists}
-     * @return {Boolean}
-     */
-    async itemExists() {
-        if (await this.bucket.pathExists({ path: this.identifierFile })) {
-            return true;
-        }
-        return false;
-    }
-
-    /**
      * Check whether the object exists in the storage.
      * @since 1.17.0
      * @return {Boolean}
@@ -180,19 +138,6 @@ export class Store extends EventEmitter {
             return true;
         }
         return false;
-    }
-
-    /**
-     * Check whether the path exists in the storage.
-     * @deprecated use fileExists from version 2
-     * @see {@link fileExists}
-     * @param {Object} params
-     * @param {String} params.path - the path of the file to check - this is relative to the item root
-     * @return {Boolean}
-     */
-    async pathExists({ path }) {
-        let target = nodePath.join(this.itemPath, path);
-        return await this.bucket.pathExists({ path: target });
     }
 
     /**
@@ -208,16 +153,6 @@ export class Store extends EventEmitter {
     }
 
     /**
-     * Get the item path.
-     * @deprecated use getObjectPath from version 2
-     * @see {@link getObjectPath}
-     * @return {String}
-     */
-    getItemPath() {
-        return this.objectPath;
-    }
-
-    /**
      * Get the path of the object in the storage.
      * @since 1.17.0
      * @return {String}
@@ -227,32 +162,12 @@ export class Store extends EventEmitter {
     }
 
     /**
-     * Get the item identifier.
-     * @deprecated use getObjectIdentifier from version 2
-     * @see {@link getObjectIdentifier}
-     * @return {Object}
-     */
-    async getItemIdentifier() {
-        return await this.getJSON({ target: "nocfl.identifier.json" });
-    }
-
-    /**
      * Get the object identifier.
      * @since 1.17.0
      * @return {Object}
      */
     async getObjectIdentifier() {
         return await this.getJSON({ target: "nocfl.identifier.json" });
-    }
-
-    /**
-     * Get the item inventory file.
-     * @deprecated use getObjectInventory from version 2
-     * @see {@link getObjectInventory}
-     * @return {Object}
-     */
-    async getItemInventory() {
-        return await this.getJSON({ target: "nocfl.inventory.json" });
     }
 
     /**
@@ -273,48 +188,6 @@ export class Store extends EventEmitter {
     async stat({ path }) {
         let target = nodePath.join(this.objectPath, path);
         return await this.bucket.stat({ path: target });
-    }
-
-    /**
-     * Create the item in the storage.
-     * @deprecated use createObject from version 2
-     * @see {@link createObject}
-     * @return {Boolean}
-     */
-    async createItem() {
-        if (await this.itemExists()) {
-            throw new Error(`An item with that identifier already exists`);
-        }
-        let roCrateFileHash = hasha(JSON.stringify(this.roCrateSkeleton));
-        await this.bucket.put({
-            target: this.roCrateFile,
-            json: this.roCrateSkeleton,
-        });
-
-        await this.bucket.put({
-            target: this.inventoryFile,
-            json: { content: { "ro-crate-metadata.json": roCrateFileHash } },
-        });
-
-        await this.bucket.put({
-            target: this.identifierFile,
-            json: {
-                id: this.id,
-                className: this.className,
-                domain: this.domain,
-                itemPath: this.itemPath,
-                splay: this.splay,
-            },
-        });
-
-        // patch the index file
-        await this.indexer.patchIndex({
-            action: "PUT",
-            domain: this.domain,
-            className: this.className,
-            id: this.id,
-            splay: this.splay,
-        });
     }
 
     /**
@@ -691,27 +564,6 @@ export class Store extends EventEmitter {
         await this.bucket.put({
             target: this.roCrateFile,
             json: crate,
-        });
-    }
-
-    /**
-     * Delete the item.
-     * @deprecated use removeObject from version 2
-     * @see {@link removeObject}
-     */
-    async deleteItem() {
-        if (!(await this.itemExists())) {
-            throw new Error(`The item doesn't exist`);
-        }
-        await this.bucket.delete({ prefix: `${this.itemPath}/` });
-
-        // patch the index file
-        await this.indexer.patchIndex({
-            action: "DELETE",
-            domain: this.domain,
-            className: this.className,
-            id: this.id,
-            splay: this.splay,
         });
     }
 
