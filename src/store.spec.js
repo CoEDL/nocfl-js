@@ -461,6 +461,8 @@ describe("Test storage actions", () => {
     test("it should be able to upload / download 9 files in chunks of 5", async () => {
         const store = new Store({ prefix: domain, type: "item", id: "test", credentials });
         await store.createObject();
+        const events = [];
+        store.on("put", (msg) => events.push(msg));
 
         let files = ["s3.spec.js", "store.js", "store.spec.js", "index.js"];
         let batch = files.map((f) => ({ localPath: path.join(__dirname, f), target: f }));
@@ -483,6 +485,8 @@ describe("Test storage actions", () => {
         let resources = await store.listResources();
         expect(resources.length).toEqual(9);
 
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        expect(events.length).toEqual(2);
         await bucket.delete({ prefix: store.getObjectPath() });
     });
     test("it should be able to upload / download a file to a subpath (not just the root)", async () => {
@@ -775,6 +779,8 @@ describe("Test storage actions", () => {
             credentials,
         });
         await target.createObject();
+        const events = [];
+        target.on("copy", (msg) => events.push(msg));
 
         // put a file into the source
         await source.put({ json: { version: 1 }, target: file });
@@ -793,6 +799,8 @@ describe("Test storage actions", () => {
         let inventory = await target.getObjectInventory();
         expect(inventory.content[file]).toEqual(targetInventory.content[file]);
 
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        expect(events.length).toEqual(2);
         await bucket.delete({ prefix: source.getObjectPath() });
         await bucket.delete({ prefix: target.getObjectPath() });
     });

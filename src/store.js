@@ -1,3 +1,4 @@
+import { EventEmitter } from "node:events";
 import { Bucket } from "./s3.js";
 import * as nodePath from "path";
 import hasha from "hasha";
@@ -33,7 +34,7 @@ const specialFiles = ["nocfl.inventory.json", "nocfl.identifier.json"];
  */
 
 /** Class representing an S3 store. */
-export class Store {
+export class Store extends EventEmitter {
     /**
      * Interact with an object in an S3 bucket.
      * @since 1.17.0
@@ -54,6 +55,7 @@ export class Store {
         credentials,
         splay = 1,
     }) {
+        super();
         if (!id) throw new Error(`Missing required property: 'id'`);
         if (!domain && !prefix) throw new Error(`Missing required property: 'domain' || 'prefix'`);
         if (!className && !type)
@@ -406,7 +408,14 @@ export class Store {
     }
 
     /**
-     * Put a file into the item on the storage.
+     * Put a file or batch of files into the item on the storage.
+     *
+     * This method is an event emitter. Listen to events using the store handle.
+     * @example <caption>Listening to events</caption>
+     * const store = new Store({})
+     * store.on("put", (msg) => console.log(msg));
+     * // where msg = { msg: 'Uploaded batch 1/1 (1/1 files)', date: date as ISO String }
+     *
      * @param {Object} params
      * @param {String} params.localPath - the path to the file locally that you want to upload to the item folder
      * @param {String} params.json - a JSON object to store in the file directly
@@ -448,13 +457,21 @@ export class Store {
 
         // upload the batch
         let chunks = chunk(batch, 5);
-        for (let chunk of chunks) {
+        let countOfFilesUploaded = 0;
+        for (let [idx, chunk] of chunks.entries()) {
             let transfers = chunk.map((params) => {
                 params.registerFile = params.registerFile ?? true;
                 return putFile(params);
             });
             let uploadedFiles = await Promise.all(transfers);
             files.push(uploadedFiles);
+            countOfFilesUploaded += transfers.length;
+            this.emit("put", {
+                msg: `Uploaded batch ${idx + 1}/${chunks.length} (${countOfFilesUploaded}/${
+                    batch.length
+                } files)`,
+                date: new Date(),
+            });
         }
 
         files = flattenDeep(files);
@@ -506,6 +523,13 @@ export class Store {
      * Copy a file into the item from another part of the storage. This capability is specifically to support using
      *  different locations in the bucket for working data and repository data where the repository data might contain versioned
      *  copies of the working data.
+     *
+     * This method is an event emitter. Listen to events using the store handle.
+     * @example <caption>Listening to events</caption>
+     * const store = new Store({})
+     * store.on("copy", (msg) => console.log(msg));
+     * // where msg = { msg: 'Copied batch 1/1 (1/1 files)', date: date as ISO String }
+     *
      * @since 1.18.0
      * @param {Object} params
      * @param {String} params.source - the source file to be copied - this must be a full path to the file inside the bucket
@@ -541,13 +565,21 @@ export class Store {
         copyFile = copyFile.bind(this);
 
         let chunks = chunk(batch, 5);
-        for (let chunk of chunks) {
+        let countOfFilesCopied = 0;
+        for (let [idx, chunk] of chunks.entries()) {
             let transfers = chunk.map((params) => {
                 params.registerFile = params.registerFile ?? true;
                 return copyFile(params);
             });
             let uploadedFiles = await Promise.all(transfers);
             files.push(uploadedFiles);
+            countOfFilesCopied += transfers.length;
+            this.emit("copy", {
+                msg: `Copied batch ${idx + 1}/${chunks.length} (${countOfFilesCopied}/${
+                    batch.length
+                } files)`,
+                date: new Date(),
+            });
         }
 
         // update the nocfl inventory
