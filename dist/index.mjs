@@ -805,7 +805,9 @@ class Store extends EventEmitter$1 {
     let crate = await this.getJSON({ target: "ro-crate-metadata.json" });
     if (!files.length) {
       files = await this.listResources();
-      files = files.map((f) => f.Key).filter((f) => ![...specialFiles, "ro-crate-metadata.json"].includes(f));
+      files = files.map((f) => f.Key).filter((f) => ![...specialFiles].includes(f)).filter((f) => !f.match(/ro-crate-metadata/));
+    } else {
+      files = files.filter((f) => ![...specialFiles].includes(f.target)).filter((f) => !f.target.match(/ro-crate-metadata/));
     }
     for (let file of files) {
       crate["@graph"] = await this.__updateCrateMetadata({
